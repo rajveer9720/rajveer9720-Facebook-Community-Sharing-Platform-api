@@ -214,6 +214,20 @@ export class GroupsService {
   async moderate(id: number, dto: ModerateGroupDto, actorId?: number): Promise<GroupResponse> {
     const group = await this.findEntityById(id);
 
+    const action = dto.action?.toUpperCase();
+    if (action === 'APPROVE' && dto.status === undefined) {
+      group.status = GroupStatus.APPROVED;
+    }
+    if (action === 'REJECT' && dto.status === undefined) {
+      group.status = GroupStatus.REJECTED;
+    }
+    if (action === 'BLACKLIST' && dto.blacklisted === undefined) {
+      group.blacklisted = true;
+    }
+    if (action === 'UNBLACKLIST' && dto.blacklisted === undefined) {
+      group.blacklisted = false;
+    }
+
     if (dto.status !== undefined) group.status = dto.status;
     if (dto.blacklisted !== undefined) group.blacklisted = dto.blacklisted;
     if (dto.qualityScore !== undefined) group.qualityScore = dto.qualityScore;
@@ -235,6 +249,7 @@ export class GroupsService {
         engagementScore: dto.engagementScore,
         spamScore: dto.spamScore,
         adminNote: dto.adminNote,
+        action: dto.action,
       },
     });
     return this.toGroupResponse(saved);

@@ -8,8 +8,7 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
-    "typecheck": "tsc -b --noEmit",
-    "seed": "ts-node -r reflect-metadata src/database/seed.ts"
+    "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.21.0",

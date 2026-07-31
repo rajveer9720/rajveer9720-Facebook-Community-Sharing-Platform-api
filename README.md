@@ -32,23 +32,27 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` with your MySQL connection details and JWT secrets. The database named in `DB_DATABASE` must already exist (e.g. `CREATE DATABASE fcsp;`) — tables are created automatically on boot (`synchronize: true`, dev-only).
+Edit `.env` with your MySQL connection details and JWT secrets. The database named in `DB_DATABASE` must already exist (e.g. `CREATE DATABASE fcsp;`).
 
-### Seed the database
+Set this for safer real deployments:
 
-Reproduces the same users/campaigns/groups/submissions/wallets seeded in the frontend's mock API:
-
-```bash
-npm run seed
+```dotenv
+DB_SYNCHRONIZE=false
 ```
 
-Seeded accounts:
+If you enable campaign AI verification, configure these as well:
 
-| Role | Email | Password |
-|---|---|---|
-| Admin | admin@example.com | Admin@12345 |
-| Worker | worker@example.com | Worker@12345 |
-| Worker | worker2@example.com | Worker@12345 |
+```dotenv
+OPENAI_API_KEY=your_openai_key
+OPENAI_VISION_MODEL=gpt-4o-mini
+AI_VERIFICATION_AUTO_APPROVE_THRESHOLD=0.85
+```
+
+For local development where you intentionally want TypeORM to auto-create/update tables:
+
+```dotenv
+DB_SYNCHRONIZE=true
+```
 
 ### Run the API
 
@@ -93,4 +97,5 @@ The frontend currently talks to an in-memory mock (`frontend/src/mocks/mockBaseQ
 | GET | /leaderboard | public (optional auth) |
 | GET | /leaderboard/achievements | public (optional auth) |
 | GET | /analytics/overview | public |
-| GET | /admin/overview | public |
+| GET | /admin/overview | ADMIN |
+| GET | /admin/worker-performance | ADMIN |

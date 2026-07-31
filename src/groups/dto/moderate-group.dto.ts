@@ -1,7 +1,11 @@
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { GroupStatus } from '../../common/enums';
 
 export class ModerateGroupDto {
+  @IsOptional()
+  @IsIn(['approve', 'reject', 'blacklist', 'unblacklist', 'APPROVE', 'REJECT', 'BLACKLIST', 'UNBLACKLIST'])
+  action?: string;
+
   @IsOptional()
   @IsEnum(GroupStatus)
   status?: GroupStatus;

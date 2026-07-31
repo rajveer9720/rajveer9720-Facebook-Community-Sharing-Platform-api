@@ -40,8 +40,9 @@ export class CampaignsService {
       name: dto.name,
       category: dto.category,
       priority: dto.priority,
-      status: CampaignStatus.DRAFT,
+      status: CampaignStatus.ACTIVE,
       instructions: dto.instructions,
+      mediaVariants: dto.mediaVariants,
       screenshotRequired: dto.screenshotRequired,
       facebookPostUrlRequired: dto.facebookPostUrlRequired,
       groupNameRequired: dto.groupNameRequired,
@@ -171,6 +172,7 @@ export class CampaignsService {
       priority: campaign.priority,
       status: campaign.status,
       instructions: campaign.instructions,
+      mediaVariants: campaign.mediaVariants ?? [],
       verificationSettings: {
         screenshotRequired: campaign.screenshotRequired,
         facebookPostUrlRequired: campaign.facebookPostUrlRequired,
@@ -231,5 +233,15 @@ export class CampaignsService {
       throw new NotFoundException('Campaign not found');
     }
     return campaign;
+  }
+
+  pickRandomMediaVariant(campaign: Campaign): { mediaUrl: string; mediaType: 'IMAGE' | 'VIDEO'; caption: string } | null {
+    const variants = campaign.mediaVariants ?? [];
+    if (variants.length === 0) {
+      return null;
+    }
+
+    const index = Math.floor(Math.random() * variants.length);
+    return variants[index] ?? null;
   }
 }

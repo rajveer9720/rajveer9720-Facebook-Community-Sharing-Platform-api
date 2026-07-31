@@ -5,8 +5,9 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Submission } from './submission.entity';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { SubmissionResponse } from './submission.response';
-import { ReviewDecision, SubmissionStatus } from '../common/enums';
+import { CampaignStatus, ReviewDecision, SubmissionStatus } from '../common/enums';
 import { CampaignsService } from '../campaigns/campaigns.service';
+import type { CampaignMediaVariant } from '../campaigns/campaign.entity';
 import { GroupsService } from '../groups/groups.service';
 import { WalletService } from '../wallet/wallet.service';
 import { RequestUser } from '../common/types/jwt-payload';
@@ -14,6 +15,7 @@ import { GcsStorageService, ProofUploadUrlResponse } from '../storage/gcs-storag
 import { CreateProofUploadUrlDto } from './dto/create-proof-upload-url.dto';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { WorkerPerformanceService } from '../worker-performance/worker-performance.service';
+import { SubmissionAiVerificationService } from './submission-ai-verification.service';
 
 @Injectable()
 export class SubmissionsService {
@@ -26,6 +28,7 @@ export class SubmissionsService {
     private readonly auditLogsService: AuditLogsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly workerPerformanceService: WorkerPerformanceService,
+    private readonly submissionAiVerificationService: SubmissionAiVerificationService,
   ) {}
 
   async createProofUploadUrl(workerId: number, dto: CreateProofUploadUrlDto): Promise<ProofUploadUrlResponse> {
@@ -55,7 +58,20 @@ export class SubmissionsService {
     await this.groupsService.enforceCooldownAvailability(currentUser.id, dto.campaignId, dto.groupId);
 
     const campaign = await this.campaignsService.findEntityById(dto.campaignId);
+    if (campaign.status !== CampaignStatus.ACTIVE) {
+      throw new BadRequestException('Campaign is not active');
+    }
+
+    const now = Date.now();
+    if (campaign.startDate.getTime() > now) {
+      throw new BadRequestException('Campaign has not started yet');
+    }
+    if (campaign.endDate.getTime() < now) {
+      throw new BadRequestException('Campaign has already ended');
+    }
+
     const group = await this.groupsService.findEntityById(dto.groupId);
+    const assignedMediaVariant = this.campaignsService.pickRandomMediaVariant(campaign) as CampaignMediaVariant | null;
     const verificationSettings = {
       screenshotRequired: campaign.screenshotRequired,
       facebookPostUrlRequired: campaign.facebookPostUrlRequired,
@@ -86,11 +102,28 @@ export class SubmissionsService {
     }
 
     const verification = proofUrl
-      ? await this.runPreReviewChecks(proofUrl, dto.caption, dto.groupId, dto.campaignId)
+      ? await this.runPreReviewChecks({
+          proofUrl,
+          caption: dto.caption,
+          groupId: dto.groupId,
+          campaignId: dto.campaignId,
+          expectedGroupName: group.name,
+          submittedGroupName,
+          aiVerificationEnabled: verificationSettings.aiVerificationEnabled,
+        })
       : {
           duplicateProofDetected: false,
           duplicateUrlDetected: false,
-          confidence: 1,
+          screenshotVisible: false,
+          ocrText: '',
+          captionMatch: false,
+          imageMatch: false,
+          groupNameMatch: false,
+          dateVisible: false,
+          timeVisible: false,
+          aiVerificationAvailable: false,
+          aiAutoApproveRecommended: false,
+          confidence: 0,
           explanation: 'Verification not required by campaign settings',
         };
     const fraud = await this.calculateFraudRisk(currentUser.id, dto.campaignId, dto.groupId, verification);
@@ -100,14 +133,22 @@ export class SubmissionsService {
     if (verificationSettings.manualReviewRequired) {
       status = SubmissionStatus.MANUAL_REVIEW;
       reviewNote = 'Manual review required by campaign settings.';
-    } else if (
-      verificationSettings.aiVerificationEnabled &&
-      (verification.duplicateProofDetected || verification.duplicateUrlDetected || fraud.flaggedForFraud)
-    ) {
-      status = SubmissionStatus.MANUAL_REVIEW;
-      reviewNote = fraud.flaggedForFraud
-        ? `Fraud risk score ${fraud.fraudRiskScore}. Manual review required.`
-        : 'Duplicate risk detected. Manual review required.';
+    } else if (verificationSettings.aiVerificationEnabled) {
+      if (verification.duplicateProofDetected || verification.duplicateUrlDetected || fraud.flaggedForFraud) {
+        status = SubmissionStatus.MANUAL_REVIEW;
+        reviewNote = fraud.flaggedForFraud
+          ? `Fraud risk score ${fraud.fraudRiskScore}. Manual review required.`
+          : 'Duplicate risk detected. Manual review required.';
+      } else if (!verification.aiVerificationAvailable) {
+        status = SubmissionStatus.MANUAL_REVIEW;
+        reviewNote = 'AI verification service unavailable. Sent to manual review.';
+      } else if (verification.aiAutoApproveRecommended) {
+        status = SubmissionStatus.APPROVED;
+        reviewNote = `Auto-approved by AI verification (confidence ${Math.round(verification.confidence * 100)}%).`;
+      } else {
+        status = SubmissionStatus.MANUAL_REVIEW;
+        reviewNote = `AI confidence ${Math.round(verification.confidence * 100)}% is below auto-approval threshold.`;
+      }
     } else if (verificationSettings.autoApprovalEnabled) {
       status = SubmissionStatus.APPROVED;
       reviewNote = 'Auto-approved by campaign settings.';
@@ -123,6 +164,7 @@ export class SubmissionsService {
       proofUrl,
       facebookPostUrl,
       submittedGroupName,
+      assignedMediaVariant,
       caption: dto.caption,
       rewardMinor: campaign.rewardPerPostMinor,
       reviewedAt: null,
@@ -278,17 +320,25 @@ export class SubmissionsService {
     };
   }
 
-  private async runPreReviewChecks(proofUrl: string, caption: string, groupId: number, campaignId: number) {
-    const normalizedProof = proofUrl.trim().toLowerCase();
-    const normalizedCaption = caption.trim().toLowerCase();
+  private async runPreReviewChecks(params: {
+    proofUrl: string;
+    caption: string;
+    groupId: number;
+    campaignId: number;
+    expectedGroupName: string;
+    submittedGroupName: string | null;
+    aiVerificationEnabled: boolean;
+  }) {
+    const normalizedProof = params.proofUrl.trim().toLowerCase();
+    const normalizedCaption = params.caption.trim().toLowerCase();
 
     const duplicateUrlDetected =
       (await this.submissionsRepository.count({
-        where: { proofUrl: proofUrl.trim() },
+        where: { proofUrl: params.proofUrl.trim() },
       })) > 0;
 
     const candidateSubmissions = await this.submissionsRepository.find({
-      where: { groupId, campaignId },
+      where: { groupId: params.groupId, campaignId: params.campaignId },
       take: 50,
       order: { submittedAt: 'DESC' },
     });
@@ -309,20 +359,71 @@ export class SubmissionsService {
       return captionSimilarity >= 0.92;
     });
 
+    const aiVerification = params.aiVerificationEnabled
+      ? await this.submissionAiVerificationService.verifyScreenshot({
+          proofUrl: params.proofUrl,
+          caption: params.caption,
+          expectedGroupName: params.expectedGroupName,
+          submittedGroupName: params.submittedGroupName,
+        })
+      : {
+          available: false,
+          screenshotVisible: false,
+          ocrText: '',
+          captionMatch: false,
+          imageMatch: false,
+          groupNameMatch: false,
+          dateVisible: false,
+          timeVisible: false,
+          confidence: 0,
+          notes: 'AI verification disabled for this campaign',
+        };
+
     let confidence = 0.75;
+    if (params.aiVerificationEnabled && aiVerification.available) {
+      const weightedScore =
+        (aiVerification.screenshotVisible ? 0.15 : 0) +
+        (aiVerification.ocrText.length > 0 ? 0.1 : 0) +
+        (aiVerification.captionMatch ? 0.2 : 0) +
+        (aiVerification.imageMatch ? 0.2 : 0) +
+        (aiVerification.groupNameMatch ? 0.15 : 0) +
+        (aiVerification.dateVisible ? 0.1 : 0) +
+        (aiVerification.timeVisible ? 0.1 : 0);
+      confidence = Math.max(confidence, Number((weightedScore * 0.9 + aiVerification.confidence * 0.1).toFixed(2)));
+    } else if (params.aiVerificationEnabled && !aiVerification.available) {
+      confidence = 0.35;
+    }
+
     if (duplicateProofDetected) confidence -= 0.4;
     if (duplicateUrlDetected) confidence -= 0.3;
     confidence = Math.max(0, Math.min(1, Number(confidence.toFixed(2))));
 
+    const threshold = this.submissionAiVerificationService.getAutoApproveThreshold();
+    const aiAutoApproveRecommended = params.aiVerificationEnabled && aiVerification.available && confidence >= threshold;
+
     const explanationParts = [
       duplicateProofDetected ? 'Similar proof content detected' : 'Proof appears unique in recent campaign-group history',
       duplicateUrlDetected ? 'Proof URL already submitted earlier' : 'Proof URL not seen before',
+      params.aiVerificationEnabled
+        ? aiVerification.available
+          ? `AI checks: screenshot=${aiVerification.screenshotVisible}, ocrText=${aiVerification.ocrText.length > 0}, captionMatch=${aiVerification.captionMatch}, imageMatch=${aiVerification.imageMatch}, groupNameMatch=${aiVerification.groupNameMatch}, dateVisible=${aiVerification.dateVisible}, timeVisible=${aiVerification.timeVisible}`
+          : `AI checks unavailable: ${aiVerification.notes}`
+        : 'AI verification disabled',
       `Confidence ${Math.round(confidence * 100)}%`,
     ];
 
     return {
       duplicateProofDetected,
       duplicateUrlDetected,
+      screenshotVisible: aiVerification.screenshotVisible,
+      ocrText: aiVerification.ocrText,
+      captionMatch: aiVerification.captionMatch,
+      imageMatch: aiVerification.imageMatch,
+      groupNameMatch: aiVerification.groupNameMatch,
+      dateVisible: aiVerification.dateVisible,
+      timeVisible: aiVerification.timeVisible,
+      aiVerificationAvailable: aiVerification.available,
+      aiAutoApproveRecommended,
       confidence,
       explanation: explanationParts.join(' | '),
     };
@@ -371,6 +472,7 @@ export class SubmissionsService {
       proofUrl: submission.proofUrl,
       facebookPostUrl: submission.facebookPostUrl,
       submittedGroupName: submission.submittedGroupName,
+      assignedMediaVariant: submission.assignedMediaVariant ?? null,
       caption: submission.caption,
       rewardMinor: submission.rewardMinor,
       submittedAt: submission.submittedAt.toISOString(),

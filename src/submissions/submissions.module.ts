@@ -9,6 +9,7 @@ import { WalletModule } from '../wallet/wallet.module';
 import { StorageModule } from '../storage/storage.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { WorkerPerformanceModule } from '../worker-performance/worker-performance.module';
+import { SubmissionAiVerificationService } from './submission-ai-verification.service';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { WorkerPerformanceModule } from '../worker-performance/worker-performanc
     WorkerPerformanceModule,
   ],
   controllers: [SubmissionsController],
-  providers: [SubmissionsService],
+  providers: [SubmissionsService, SubmissionAiVerificationService],
   exports: [SubmissionsService],
 })
 export class SubmissionsModule {}

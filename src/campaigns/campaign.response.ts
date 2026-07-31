@@ -1,4 +1,5 @@
 import { CampaignCategory, CampaignPriority, CampaignStatus } from '../common/enums';
+import type { CampaignMediaVariant } from './campaign.entity';
 
 export interface CampaignResponse {
   id: number;
@@ -7,6 +8,7 @@ export interface CampaignResponse {
   priority: CampaignPriority;
   status: CampaignStatus;
   instructions: string;
+  mediaVariants: CampaignMediaVariant[];
   verificationSettings: {
     screenshotRequired: boolean;
     facebookPostUrlRequired: boolean;

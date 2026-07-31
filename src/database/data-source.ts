@@ -37,5 +37,5 @@ export const AppDataSource = new DataSource({
     Notification,
     WorkerPerformance,
   ],
-  synchronize: true,
+  synchronize: (process.env.DB_SYNCHRONIZE ?? 'false').toLowerCase() === 'true',
 });

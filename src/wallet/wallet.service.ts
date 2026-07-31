@@ -36,7 +36,11 @@ export class WalletService {
   }
 
   async getForWorker(workerId: number): Promise<WalletResponse> {
-    const wallet = await this.walletsRepository.findOne({ where: { workerId } });
+    let wallet = await this.walletsRepository.findOne({ where: { workerId } });
+    if (!wallet) {
+      await this.ensureWalletForWorker(workerId);
+      wallet = await this.walletsRepository.findOne({ where: { workerId } });
+    }
     if (!wallet) {
       throw new NotFoundException('Wallet not found');
     }

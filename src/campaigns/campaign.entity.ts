@@ -1,6 +1,12 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { CampaignCategory, CampaignPriority, CampaignStatus } from '../common/enums';
 
+export interface CampaignMediaVariant {
+  mediaUrl: string;
+  mediaType: 'IMAGE' | 'VIDEO';
+  caption: string;
+}
+
 @Entity('campaigns')
 export class Campaign {
   @PrimaryGeneratedColumn()
@@ -20,6 +26,9 @@ export class Campaign {
 
   @Column({ type: 'text' })
   instructions: string;
+
+  @Column({ type: 'json', default: '[]' })
+  mediaVariants: CampaignMediaVariant[];
 
   @Column({ default: true })
   screenshotRequired: boolean;

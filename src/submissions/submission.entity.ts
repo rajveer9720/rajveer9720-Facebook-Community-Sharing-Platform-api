@@ -45,6 +45,9 @@ export class Submission {
   @Column({ type: 'text' })
   caption: string;
 
+  @Column({ type: 'json', nullable: true })
+  assignedMediaVariant: { mediaUrl: string; mediaType: 'IMAGE' | 'VIDEO'; caption: string } | null;
+
   @Column()
   rewardMinor: number;
 

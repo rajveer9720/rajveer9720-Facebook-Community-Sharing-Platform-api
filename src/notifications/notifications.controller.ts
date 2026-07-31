@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequestUser } from '../common/types/jwt-payload';
@@ -15,7 +15,7 @@ export class NotificationsController {
   }
 
   @Post(':id/read')
-  markAsRead(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+  markAsRead(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number) {
     return this.notificationsService.markAsRead(user.id, id);
   }
 }

@@ -152,7 +152,7 @@ export class GroupsService {
     return selectedGroups.map((group) => {
       const assignment = assignmentMap.get(group.id);
       return {
-        assignmentId: assignment?.id ?? '',
+        assignmentId: Number(assignment?.id ?? 0),
         campaignId: campaign.id,
         cooldownUntil: (assignment?.cooldownUntil ?? now).toISOString(),
         group: this.toGroupResponse(group),

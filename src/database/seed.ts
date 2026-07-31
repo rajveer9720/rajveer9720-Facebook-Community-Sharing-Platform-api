@@ -1,13 +1,17 @@
 import * as bcrypt from 'bcrypt';
-import { AppDataSource } from './data-source';
+import { DataSource } from 'typeorm';
 import { User } from '../users/user.entity';
 import { Campaign } from '../campaigns/campaign.entity';
 import { FacebookGroup } from '../groups/facebook-group.entity';
 import { WorkerGroupLibraryEntry } from '../groups/worker-group-library-entry.entity';
+import { CampaignGroupAssignment } from '../groups/campaign-group-assignment.entity';
 import { Submission } from '../submissions/submission.entity';
 import { Wallet } from '../wallet/wallet.entity';
 import { Withdrawal } from '../wallet/withdrawal.entity';
 import { Achievement } from '../leaderboard/achievement.entity';
+import { AuditLog } from '../audit-logs/audit-log.entity';
+import { Notification } from '../notifications/notification.entity';
+import { WorkerPerformance } from '../worker-performance/worker-performance.entity';
 import {
   CampaignCategory,
   CampaignPriority,
@@ -25,7 +29,17 @@ const daysAgo = (d: number) => hoursAgo(d * 24);
 const daysFromNow = (d: number) => new Date(now + d * 24 * 60 * 60 * 1000);
 
 async function seed(): Promise<void> {
-  const dataSource = await AppDataSource.initialize();
+  const dataSource = await new DataSource({
+    type: 'mysql',
+    host: process.env.DB_HOST ?? 'localhost',
+    port: Number(process.env.DB_PORT ?? 3306),
+    username: process.env.DB_USERNAME ?? 'root',
+    password: process.env.DB_PASSWORD ?? '',
+    database: process.env.DB_DATABASE ?? 'fcsp',
+    entities: [User, Campaign, FacebookGroup, WorkerGroupLibraryEntry, CampaignGroupAssignment, Submission, Wallet, Withdrawal, Achievement, AuditLog, Notification, WorkerPerformance],
+    synchronize: true,
+    dropSchema: true,
+  }).initialize();
 
   // Clear existing data, children first.
   await dataSource.getRepository(Withdrawal).createQueryBuilder().delete().execute();

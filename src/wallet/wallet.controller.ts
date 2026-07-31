@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { WalletService } from './wallet.service';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
 import { ReviewWithdrawalDto } from './dto/review-withdrawal.dto';
@@ -34,14 +34,14 @@ export class WalletController {
   @Post('withdrawals/:id/review')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  reviewWithdrawal(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: ReviewWithdrawalDto) {
+  reviewWithdrawal(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number, @Body() dto: ReviewWithdrawalDto) {
     return this.walletService.reviewWithdrawal(id, dto.action, user.id);
   }
 
   @Post('withdrawals/:id/complete')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  completeWithdrawal(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+  completeWithdrawal(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number) {
     return this.walletService.completeWithdrawal(id, user.id);
   }
 }

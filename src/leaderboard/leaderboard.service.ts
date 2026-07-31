@@ -7,7 +7,7 @@ import { AchievementResponse, LeaderboardEntryResponse } from './leaderboard.res
 import { SubmissionStatus } from '../common/enums';
 
 interface LeaderboardRow {
-  workerId: string;
+  workerId: number;
   workerName: string;
   approvedPosts: string;
   earningsMinor: string;
@@ -20,7 +20,7 @@ export class LeaderboardService {
     @InjectRepository(Submission) private readonly submissionsRepository: Repository<Submission>,
   ) {}
 
-  async getLeaderboard(currentUserId?: string): Promise<LeaderboardEntryResponse[]> {
+  async getLeaderboard(currentUserId?: number): Promise<LeaderboardEntryResponse[]> {
     const rows = await this.submissionsRepository
       .createQueryBuilder('submission')
       .innerJoin('submission.worker', 'worker')
@@ -37,15 +37,15 @@ export class LeaderboardService {
 
     return rows.map((row, index) => ({
       rank: index + 1,
-      workerId: row.workerId,
+      workerId: Number(row.workerId),
       workerName: row.workerName,
       approvedPosts: Number(row.approvedPosts),
       earningsMinor: Number(row.earningsMinor),
-      isCurrentWorker: row.workerId === currentUserId,
+      isCurrentWorker: Number(row.workerId) === currentUserId,
     }));
   }
 
-  async getAchievements(currentUserId?: string): Promise<AchievementResponse[]> {
+  async getAchievements(currentUserId?: number): Promise<AchievementResponse[]> {
     const catalog = await this.achievementsRepository.find({ order: { sortOrder: 'ASC' } });
 
     let approvedReviewDates: Date[] = [];
@@ -63,7 +63,7 @@ export class LeaderboardService {
           ? approvedReviewDates[achievement.thresholdApprovedPosts - 1]
           : null;
       return {
-        id: achievement.id,
+        id: Number(achievement.id),
         title: achievement.title,
         description: achievement.description,
         unlockedAt: unlockedAt ? unlockedAt.toISOString() : null,

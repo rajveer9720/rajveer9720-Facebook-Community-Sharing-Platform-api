@@ -16,7 +16,7 @@ export class SubmissionsController {
 
   @Get()
   findAll(@Query('workerId') workerId?: string, @Query('status') status?: SubmissionStatus) {
-    return this.submissionsService.findAll(workerId, status);
+    return this.submissionsService.findAll(workerId ? Number(workerId) : undefined, status);
   }
 
   @Post()

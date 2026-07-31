@@ -33,8 +33,14 @@ export class Submission {
   @Column({ type: 'enum', enum: SubmissionStatus, default: SubmissionStatus.PENDING })
   status: SubmissionStatus;
 
-  @Column()
-  proofUrl: string;
+  @Column({ type: 'varchar', length: 2048, nullable: true })
+  proofUrl: string | null;
+
+  @Column({ type: 'varchar', length: 2048, nullable: true })
+  facebookPostUrl: string | null;
+
+  @Column({ type: 'varchar', length: 191, nullable: true })
+  submittedGroupName: string | null;
 
   @Column({ type: 'text' })
   caption: string;

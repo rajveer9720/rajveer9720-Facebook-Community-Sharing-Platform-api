@@ -8,7 +8,7 @@ import { NotificationResponse } from './notifications.response';
 export class NotificationsService {
   constructor(@InjectRepository(Notification) private readonly notificationsRepository: Repository<Notification>) {}
 
-  async listForUser(userId: string): Promise<NotificationResponse[]> {
+  async listForUser(userId: number): Promise<NotificationResponse[]> {
     const notifications = await this.notificationsRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
@@ -17,7 +17,7 @@ export class NotificationsService {
     return notifications.map((notification) => this.toResponse(notification));
   }
 
-  async markAsRead(userId: string, id: string): Promise<NotificationResponse> {
+  async markAsRead(userId: number, id: number): Promise<NotificationResponse> {
     const notification = await this.notificationsRepository.findOne({ where: { id, userId } });
     if (!notification) {
       throw new NotFoundException('Notification not found');
@@ -29,7 +29,7 @@ export class NotificationsService {
   }
 
   async create(input: {
-    userId: string;
+    userId: number;
     type: string;
     title: string;
     message: string;

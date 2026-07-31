@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
 export class CreateProofUploadUrlDto {
   @IsString()
@@ -10,7 +10,7 @@ export class CreateProofUploadUrlDto {
   contentType: string;
 
   @IsOptional()
-  @IsString()
-  @MinLength(1)
-  campaignId?: string;
+  @IsInt()
+  @Min(1)
+  campaignId?: number;
 }

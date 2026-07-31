@@ -1,4 +1,4 @@
-import { IsInt, IsString, Min, MinLength } from 'class-validator';
+import { IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
 export class CreateSubmissionDto {
   @IsInt()
@@ -9,9 +9,20 @@ export class CreateSubmissionDto {
   @Min(1)
   groupId: number;
 
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  proofUrl: string;
+  proofUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  facebookPostUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  groupName?: string;
 
   @IsString()
   caption: string;

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -28,7 +28,7 @@ export class SubmissionsService {
     private readonly workerPerformanceService: WorkerPerformanceService,
   ) {}
 
-  async createProofUploadUrl(workerId: string, dto: CreateProofUploadUrlDto): Promise<ProofUploadUrlResponse> {
+  async createProofUploadUrl(workerId: number, dto: CreateProofUploadUrlDto): Promise<ProofUploadUrlResponse> {
     return this.storageService.createSubmissionProofUploadUrl({
       workerId,
       campaignId: dto.campaignId,
@@ -37,7 +37,7 @@ export class SubmissionsService {
     });
   }
 
-  async findAll(workerId?: string, status?: SubmissionStatus): Promise<SubmissionResponse[]> {
+  async findAll(workerId?: number, status?: SubmissionStatus): Promise<SubmissionResponse[]> {
     const where: Record<string, unknown> = {};
     if (workerId) where.workerId = workerId;
     if (status) where.status = status;
@@ -56,16 +56,61 @@ export class SubmissionsService {
 
     const campaign = await this.campaignsService.findEntityById(dto.campaignId);
     const group = await this.groupsService.findEntityById(dto.groupId);
-    const verification = await this.runPreReviewChecks(dto.proofUrl, dto.caption, dto.groupId, dto.campaignId);
+    const verificationSettings = {
+      screenshotRequired: campaign.screenshotRequired,
+      facebookPostUrlRequired: campaign.facebookPostUrlRequired,
+      groupNameRequired: campaign.groupNameRequired,
+      manualReviewRequired: campaign.manualReviewRequired,
+      aiVerificationEnabled: campaign.aiVerificationEnabled,
+      autoApprovalEnabled: campaign.autoApprovalEnabled,
+    };
+
+    const proofUrl = dto.proofUrl?.trim() || null;
+    const facebookPostUrl = dto.facebookPostUrl?.trim() || null;
+    const submittedGroupName = dto.groupName?.trim() || null;
+    const requiresScreenshot = verificationSettings.screenshotRequired || verificationSettings.aiVerificationEnabled;
+
+    if (requiresScreenshot && !proofUrl) {
+      throw new BadRequestException('Screenshot proof is required for this campaign');
+    }
+    if (verificationSettings.facebookPostUrlRequired && !facebookPostUrl) {
+      throw new BadRequestException('Facebook post URL is required for this campaign');
+    }
+    if (verificationSettings.groupNameRequired) {
+      if (!submittedGroupName) {
+        throw new BadRequestException('Group name is required for this campaign');
+      }
+      if (submittedGroupName.trim().toLowerCase() !== group.name.trim().toLowerCase()) {
+        throw new BadRequestException('Group name does not match the selected group');
+      }
+    }
+
+    const verification = proofUrl
+      ? await this.runPreReviewChecks(proofUrl, dto.caption, dto.groupId, dto.campaignId)
+      : {
+          duplicateProofDetected: false,
+          duplicateUrlDetected: false,
+          confidence: 1,
+          explanation: 'Verification not required by campaign settings',
+        };
     const fraud = await this.calculateFraudRisk(currentUser.id, dto.campaignId, dto.groupId, verification);
 
     let status = SubmissionStatus.PENDING;
     let reviewNote: string | null = null;
-    if (verification.duplicateProofDetected || verification.duplicateUrlDetected || fraud.flaggedForFraud) {
+    if (verificationSettings.manualReviewRequired) {
+      status = SubmissionStatus.MANUAL_REVIEW;
+      reviewNote = 'Manual review required by campaign settings.';
+    } else if (
+      verificationSettings.aiVerificationEnabled &&
+      (verification.duplicateProofDetected || verification.duplicateUrlDetected || fraud.flaggedForFraud)
+    ) {
       status = SubmissionStatus.MANUAL_REVIEW;
       reviewNote = fraud.flaggedForFraud
         ? `Fraud risk score ${fraud.fraudRiskScore}. Manual review required.`
         : 'Duplicate risk detected. Manual review required.';
+    } else if (verificationSettings.autoApprovalEnabled) {
+      status = SubmissionStatus.APPROVED;
+      reviewNote = 'Auto-approved by campaign settings.';
     }
 
     const submission = this.submissionsRepository.create({
@@ -75,7 +120,9 @@ export class SubmissionsService {
       groupId: group.id,
       group,
       status,
-      proofUrl: dto.proofUrl,
+      proofUrl,
+      facebookPostUrl,
+      submittedGroupName,
       caption: dto.caption,
       rewardMinor: campaign.rewardPerPostMinor,
       reviewedAt: null,
@@ -89,6 +136,27 @@ export class SubmissionsService {
       fraudSignals: fraud.signals,
     });
     const saved = await this.submissionsRepository.save(submission);
+
+    if (status === SubmissionStatus.APPROVED) {
+      saved.reviewedAt = new Date();
+      await this.submissionsRepository.save(saved);
+      await this.walletService.approvePendingReward(currentUser.id, saved.rewardMinor);
+      await this.campaignsService.recordApprovedSpend(saved.campaignId, saved.rewardMinor);
+      await this.groupsService.registerApprovedSubmission(currentUser.id, saved.campaignId, saved.groupId);
+      await this.auditLogsService.record({
+        action: 'submission.review.approved',
+        resourceType: 'Submission',
+        resourceId: String(saved.id),
+        metadata: { campaignId: saved.campaignId, workerId: saved.workerId, groupId: saved.groupId },
+      });
+      this.eventEmitter.emit('submission.reviewed', {
+        submissionId: saved.id,
+        workerId: saved.workerId,
+        campaignId: saved.campaignId,
+        status: saved.status,
+        note: saved.reviewNote,
+      });
+    }
 
     await this.workerPerformanceService.applyFraudSignal(
       currentUser.id,
@@ -117,7 +185,7 @@ export class SubmissionsService {
     return this.toResponse(withWorker as Submission);
   }
 
-  async review(id: number, decision: ReviewDecision, note?: string, actorId?: string): Promise<SubmissionResponse> {
+  async review(id: number, decision: ReviewDecision, note?: string, actorId?: number): Promise<SubmissionResponse> {
     const submission = await this.submissionsRepository.findOne({
       where: { id },
       relations: { campaign: true, worker: true, group: true },
@@ -226,10 +294,10 @@ export class SubmissionsService {
     });
 
     const duplicateProofDetected = candidateSubmissions.some((existing) => {
-      const existingProof = existing.proofUrl.trim().toLowerCase();
+      const existingProof = existing.proofUrl?.trim().toLowerCase() ?? null;
       const existingCaption = existing.caption.trim().toLowerCase();
 
-      if (existingProof === normalizedProof) {
+      if (existingProof && existingProof === normalizedProof) {
         return true;
       }
 
@@ -301,6 +369,8 @@ export class SubmissionsService {
       groupName: submission.group.name,
       status: submission.status,
       proofUrl: submission.proofUrl,
+      facebookPostUrl: submission.facebookPostUrl,
+      submittedGroupName: submission.submittedGroupName,
       caption: submission.caption,
       rewardMinor: submission.rewardMinor,
       submittedAt: submission.submittedAt.toISOString(),

@@ -7,6 +7,14 @@ export interface CampaignResponse {
   priority: CampaignPriority;
   status: CampaignStatus;
   instructions: string;
+  verificationSettings: {
+    screenshotRequired: boolean;
+    facebookPostUrlRequired: boolean;
+    groupNameRequired: boolean;
+    manualReviewRequired: boolean;
+    aiVerificationEnabled: boolean;
+    autoApprovalEnabled: boolean;
+  };
   startDate: string;
   endDate: string;
   budgetMinor: number;

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { GroupsService } from './groups.service';
 import { CreateGroupDiscoveryDto } from './dto/create-group-discovery.dto';
 import { RecommendGroupsDto } from './dto/recommend-groups.dto';
@@ -49,14 +49,14 @@ export class GroupsController {
   @Post('groups/:id/moderate')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  moderate(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: ModerateGroupDto) {
+  moderate(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number, @Body() dto: ModerateGroupDto) {
     return this.groupsService.moderate(id, dto, user.id);
   }
 
   @Patch('groups/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  update(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: UpdateGroupDto) {
+  update(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateGroupDto) {
     return this.groupsService.update(id, dto, user.id);
   }
 }

@@ -24,8 +24,8 @@ export class GcsStorageService {
   }
 
   async createSubmissionProofUploadUrl(params: {
-    workerId: string;
-    campaignId?: string;
+    workerId: number;
+    campaignId?: number;
     fileName: string;
     contentType: string;
   }): Promise<ProofUploadUrlResponse> {
@@ -51,7 +51,7 @@ export class GcsStorageService {
     };
   }
 
-  private buildObjectKey(workerId: string, campaignId: string | undefined, fileName: string): string {
+  private buildObjectKey(workerId: number, campaignId: number | undefined, fileName: string): string {
     const extension = this.extractFileExtension(fileName);
     const safeCampaignId = campaignId ?? 'general';
     return `submission-proofs/${workerId}/${safeCampaignId}/${Date.now()}-${crypto.randomUUID()}${extension}`;

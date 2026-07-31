@@ -21,6 +21,24 @@ export class Campaign {
   @Column({ type: 'text' })
   instructions: string;
 
+  @Column({ default: true })
+  screenshotRequired: boolean;
+
+  @Column({ default: false })
+  facebookPostUrlRequired: boolean;
+
+  @Column({ default: false })
+  groupNameRequired: boolean;
+
+  @Column({ default: false })
+  manualReviewRequired: boolean;
+
+  @Column({ default: true })
+  aiVerificationEnabled: boolean;
+
+  @Column({ default: false })
+  autoApprovalEnabled: boolean;
+
   @Column({ type: 'datetime' })
   startDate: Date;
 

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { CampaignsService } from './campaigns.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { CampaignStatus, UserRole } from '../common/enums';
@@ -18,7 +18,7 @@ export class CampaignsController {
   }
 
   @Get(':id')
-  findById(@Param('id') id: string) {
+  findById(@Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.findById(id);
   }
 
@@ -32,28 +32,28 @@ export class CampaignsController {
   @Post(':id/pause')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  pause(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+  pause(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.pause(id, user.id);
   }
 
   @Post(':id/resume')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  resume(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+  resume(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.resume(id, user.id);
   }
 
   @Post(':id/duplicate')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  duplicate(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+  duplicate(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.duplicate(id, user.id);
   }
 
   @Post(':id/archive')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  archive(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+  archive(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.archive(id, user.id);
   }
 }

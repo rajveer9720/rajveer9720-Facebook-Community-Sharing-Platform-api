@@ -9,7 +9,9 @@ export interface SubmissionResponse {
   groupId: number;
   groupName: string;
   status: SubmissionStatus;
-  proofUrl: string;
+  proofUrl: string | null;
+  facebookPostUrl: string | null;
+  submittedGroupName: string | null;
   caption: string;
   rewardMinor: number;
   submittedAt: string;

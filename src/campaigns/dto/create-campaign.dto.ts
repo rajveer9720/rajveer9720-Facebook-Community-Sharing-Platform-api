@@ -1,4 +1,4 @@
-import { IsEnum, IsISO8601, IsInt, IsString, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsISO8601, IsInt, IsString, Min, MinLength } from 'class-validator';
 import { CampaignCategory, CampaignPriority } from '../../common/enums';
 
 export class CreateCampaignDto {
@@ -41,4 +41,22 @@ export class CreateCampaignDto {
   @IsString()
   @MinLength(1)
   instructions: string;
+
+  @IsBoolean()
+  screenshotRequired: boolean;
+
+  @IsBoolean()
+  facebookPostUrlRequired: boolean;
+
+  @IsBoolean()
+  groupNameRequired: boolean;
+
+  @IsBoolean()
+  manualReviewRequired: boolean;
+
+  @IsBoolean()
+  aiVerificationEnabled: boolean;
+
+  @IsBoolean()
+  autoApprovalEnabled: boolean;
 }

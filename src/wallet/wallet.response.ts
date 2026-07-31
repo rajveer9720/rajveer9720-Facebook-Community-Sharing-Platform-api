@@ -1,7 +1,7 @@
 import { PaymentMethod, WithdrawalStatus } from '../common/enums';
 
 export interface WalletResponse {
-  workerId: string;
+  workerId: number;
   availableMinor: number;
   pendingMinor: number;
   withdrawalHoldMinor: number;
@@ -16,8 +16,8 @@ export interface WithdrawalWorkerResponse {
 }
 
 export interface WithdrawalResponse {
-  id: string;
-  workerId: string;
+  id: number;
+  workerId: number;
   worker: WithdrawalWorkerResponse;
   amountMinor: number;
   currency: string;

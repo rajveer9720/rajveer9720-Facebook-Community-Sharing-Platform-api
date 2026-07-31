@@ -1,6 +1,9 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { GroupsService } from './groups.service';
 import { CreateGroupDiscoveryDto } from './dto/create-group-discovery.dto';
+import { RecommendGroupsDto } from './dto/recommend-groups.dto';
+import { ModerateGroupDto } from './dto/moderate-group.dto';
+import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupStatus, UserRole } from '../common/enums';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -34,5 +37,26 @@ export class GroupsController {
   @Roles(UserRole.WORKER)
   create(@Body() dto: CreateGroupDiscoveryDto) {
     return this.groupsService.create(dto);
+  }
+
+  @Post('groups/recommendations')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.WORKER)
+  recommend(@CurrentUser() user: RequestUser, @Body() dto: RecommendGroupsDto) {
+    return this.groupsService.recommendForWorker(user.id, dto);
+  }
+
+  @Post('groups/:id/moderate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  moderate(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: ModerateGroupDto) {
+    return this.groupsService.moderate(id, dto, user.id);
+  }
+
+  @Patch('groups/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  update(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: UpdateGroupDto) {
+    return this.groupsService.update(id, dto, user.id);
   }
 }

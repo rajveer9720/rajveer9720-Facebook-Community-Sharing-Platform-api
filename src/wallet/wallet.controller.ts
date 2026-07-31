@@ -34,14 +34,14 @@ export class WalletController {
   @Post('withdrawals/:id/review')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  reviewWithdrawal(@Param('id') id: string, @Body() dto: ReviewWithdrawalDto) {
-    return this.walletService.reviewWithdrawal(id, dto.action);
+  reviewWithdrawal(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: ReviewWithdrawalDto) {
+    return this.walletService.reviewWithdrawal(id, dto.action, user.id);
   }
 
   @Post('withdrawals/:id/complete')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  completeWithdrawal(@Param('id') id: string) {
-    return this.walletService.completeWithdrawal(id);
+  completeWithdrawal(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.walletService.completeWithdrawal(id, user.id);
   }
 }

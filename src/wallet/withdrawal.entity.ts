@@ -4,11 +4,11 @@ import { PaymentMethod, WithdrawalStatus } from '../common/enums';
 
 @Entity('withdrawals')
 export class Withdrawal {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column()
-  workerId: string;
+  workerId: number;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workerId' })

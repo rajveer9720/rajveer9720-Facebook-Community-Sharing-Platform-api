@@ -1,12 +1,12 @@
 import { SubmissionStatus } from '../common/enums';
 
 export interface SubmissionResponse {
-  id: string;
-  campaignId: string;
+  id: number;
+  campaignId: number;
   campaignName: string;
-  workerId: string;
+  workerId: number;
   workerName: string;
-  groupId: string;
+  groupId: number;
   groupName: string;
   status: SubmissionStatus;
   proofUrl: string;
@@ -14,5 +14,12 @@ export interface SubmissionResponse {
   rewardMinor: number;
   submittedAt: string;
   reviewedAt: string | null;
-  reviewNote: string | null;
+  reviewNote: string;
+  verificationConfidence: number;
+  verificationExplanation: string;
+  duplicateProofDetected: boolean;
+  duplicateUrlDetected: boolean;
+  fraudRiskScore: number;
+  flaggedForFraud: boolean;
+  fraudSignals: Record<string, unknown>;
 }

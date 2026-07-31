@@ -6,25 +6,25 @@ import { SubmissionStatus } from '../common/enums';
 
 @Entity('submissions')
 export class Submission {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column()
-  campaignId: string;
+  campaignId: number;
 
   @ManyToOne(() => Campaign, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'campaignId' })
   campaign: Campaign;
 
   @Column()
-  workerId: string;
+  workerId: number;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workerId' })
   worker: User;
 
   @Column()
-  groupId: string;
+  groupId: number;
 
   @ManyToOne(() => FacebookGroup, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'groupId' })
@@ -50,4 +50,25 @@ export class Submission {
 
   @Column({ type: 'text', nullable: true })
   reviewNote: string | null;
+
+  @Column({ default: 0 })
+  verificationConfidence: number;
+
+  @Column({ type: 'text', nullable: true })
+  verificationExplanation: string | null;
+
+  @Column({ default: false })
+  duplicateProofDetected: boolean;
+
+  @Column({ default: false })
+  duplicateUrlDetected: boolean;
+
+  @Column({ default: 0 })
+  fraudRiskScore: number;
+
+  @Column({ default: false })
+  flaggedForFraud: boolean;
+
+  @Column({ type: 'json', nullable: true })
+  fraudSignals: Record<string, unknown> | null;
 }

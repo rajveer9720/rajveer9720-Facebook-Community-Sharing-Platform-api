@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Wallet } from './wallet.entity';
@@ -6,15 +7,35 @@ import { Withdrawal } from './withdrawal.entity';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
 import { WalletResponse, WithdrawalResponse } from './wallet.response';
 import { WithdrawalReviewAction, WithdrawalStatus } from '../common/enums';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 @Injectable()
 export class WalletService {
   constructor(
     @InjectRepository(Wallet) private readonly walletsRepository: Repository<Wallet>,
     @InjectRepository(Withdrawal) private readonly withdrawalsRepository: Repository<Withdrawal>,
+    private readonly auditLogsService: AuditLogsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
-  async getForWorker(workerId: string): Promise<WalletResponse> {
+  async ensureWalletForWorker(workerId: number, currency = 'GBP'): Promise<void> {
+    const existingWallet = await this.walletsRepository.findOne({ where: { workerId } });
+    if (existingWallet) {
+      return;
+    }
+
+    const wallet = this.walletsRepository.create({
+      workerId,
+      availableMinor: 0,
+      pendingMinor: 0,
+      withdrawalHoldMinor: 0,
+      totalMinor: 0,
+      currency,
+    });
+    await this.walletsRepository.save(wallet);
+  }
+
+  async getForWorker(workerId: number): Promise<WalletResponse> {
     const wallet = await this.walletsRepository.findOne({ where: { workerId } });
     if (!wallet) {
       throw new NotFoundException('Wallet not found');
@@ -22,7 +43,7 @@ export class WalletService {
     return this.toWalletResponse(wallet);
   }
 
-  async registerPendingReward(workerId: string, amountMinor: number): Promise<void> {
+  async registerPendingReward(workerId: number, amountMinor: number): Promise<void> {
     const wallet = await this.walletsRepository.findOne({ where: { workerId } });
     if (!wallet) return;
     wallet.pendingMinor += amountMinor;
@@ -30,7 +51,7 @@ export class WalletService {
     await this.walletsRepository.save(wallet);
   }
 
-  async approvePendingReward(workerId: string, amountMinor: number): Promise<void> {
+  async approvePendingReward(workerId: number, amountMinor: number): Promise<void> {
     const wallet = await this.walletsRepository.findOne({ where: { workerId } });
     if (!wallet) return;
     wallet.pendingMinor = Math.max(0, wallet.pendingMinor - amountMinor);
@@ -38,7 +59,7 @@ export class WalletService {
     await this.walletsRepository.save(wallet);
   }
 
-  async rejectPendingReward(workerId: string, amountMinor: number): Promise<void> {
+  async rejectPendingReward(workerId: number, amountMinor: number): Promise<void> {
     const wallet = await this.walletsRepository.findOne({ where: { workerId } });
     if (!wallet) return;
     wallet.pendingMinor = Math.max(0, wallet.pendingMinor - amountMinor);
@@ -55,7 +76,7 @@ export class WalletService {
     return { items: withdrawals.map((withdrawal) => this.toWithdrawalResponse(withdrawal)) };
   }
 
-  async createWithdrawal(workerId: string, dto: CreateWithdrawalDto): Promise<WithdrawalResponse> {
+  async createWithdrawal(workerId: number, dto: CreateWithdrawalDto): Promise<WithdrawalResponse> {
     const wallet = await this.walletsRepository.findOne({ where: { workerId }, relations: { worker: true } });
     if (!wallet) {
       throw new NotFoundException('Wallet not found');
@@ -82,7 +103,7 @@ export class WalletService {
     return this.toWithdrawalResponse(saved);
   }
 
-  async reviewWithdrawal(id: string, action: WithdrawalReviewAction): Promise<WithdrawalResponse> {
+  async reviewWithdrawal(id: number, action: WithdrawalReviewAction, actorId?: number): Promise<WithdrawalResponse> {
     const withdrawal = await this.withdrawalsRepository.findOne({ where: { id }, relations: { worker: true } });
     if (!withdrawal) {
       throw new NotFoundException('Withdrawal not found');
@@ -104,10 +125,26 @@ export class WalletService {
     }
 
     const saved = await this.withdrawalsRepository.save(withdrawal);
+    await this.auditLogsService.record({
+      actorId,
+      action: `withdrawal.review.${saved.status.toLowerCase()}`,
+      resourceType: 'Withdrawal',
+      resourceId: saved.id,
+      metadata: { workerId: saved.workerId, amountMinor: saved.amountMinor, action },
+    });
+
+    this.eventEmitter.emit('withdrawal.status_changed', {
+      withdrawalId: saved.id,
+      workerId: saved.workerId,
+      status: saved.status,
+      amountMinor: saved.amountMinor,
+      currency: saved.currency,
+    });
+
     return this.toWithdrawalResponse(saved);
   }
 
-  async completeWithdrawal(id: string): Promise<WithdrawalResponse> {
+  async completeWithdrawal(id: number, actorId?: number): Promise<WithdrawalResponse> {
     const withdrawal = await this.withdrawalsRepository.findOne({ where: { id }, relations: { worker: true } });
     if (!withdrawal) {
       throw new NotFoundException('Withdrawal not found');
@@ -125,6 +162,22 @@ export class WalletService {
     }
 
     const saved = await this.withdrawalsRepository.save(withdrawal);
+    await this.auditLogsService.record({
+      actorId,
+      action: 'withdrawal.complete',
+      resourceType: 'Withdrawal',
+      resourceId: saved.id,
+      metadata: { workerId: saved.workerId, amountMinor: saved.amountMinor },
+    });
+
+    this.eventEmitter.emit('withdrawal.status_changed', {
+      withdrawalId: saved.id,
+      workerId: saved.workerId,
+      status: saved.status,
+      amountMinor: saved.amountMinor,
+      currency: saved.currency,
+    });
+
     return this.toWithdrawalResponse(saved);
   }
 

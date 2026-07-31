@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { SubmissionsService } from './submissions.service';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
+import { CreateProofUploadUrlDto } from './dto/create-proof-upload-url.dto';
 import { ReviewSubmissionDto } from './dto/review-submission.dto';
 import { SubmissionStatus, UserRole } from '../common/enums';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -25,10 +26,17 @@ export class SubmissionsController {
     return this.submissionsService.create(user, dto);
   }
 
+  @Post('proof-upload-url')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.WORKER)
+  createProofUploadUrl(@CurrentUser() user: RequestUser, @Body() dto: CreateProofUploadUrlDto) {
+    return this.submissionsService.createProofUploadUrl(user.id, dto);
+  }
+
   @Post(':id/review')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  review(@Param('id') id: string, @Body() dto: ReviewSubmissionDto) {
-    return this.submissionsService.review(id, dto.decision, dto.note);
+  review(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number, @Body() dto: ReviewSubmissionDto) {
+    return this.submissionsService.review(id, dto.decision, dto.note, user.id);
   }
 }

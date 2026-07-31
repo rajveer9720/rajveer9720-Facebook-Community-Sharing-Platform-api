@@ -3,8 +3,8 @@ import { CampaignCategory, CampaignPriority, CampaignStatus } from '../common/en
 
 @Entity('campaigns')
 export class Campaign {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column()
   name: string;
@@ -30,6 +30,9 @@ export class Campaign {
   @Column()
   budgetMinor: number;
 
+  @Column({ default: 0 })
+  spentMinor: number;
+
   @Column()
   rewardPerPostMinor: number;
 
@@ -47,6 +50,12 @@ export class Campaign {
 
   @Column({ default: 0 })
   workersJoined: number;
+
+  @Column({ type: 'datetime', nullable: true })
+  archivedAt: Date | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  endingSoonNotifiedAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

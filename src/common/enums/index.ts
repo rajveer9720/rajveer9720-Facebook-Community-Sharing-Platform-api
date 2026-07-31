@@ -21,6 +21,7 @@ export enum CampaignStatus {
   ACTIVE = 'ACTIVE',
   PAUSED = 'PAUSED',
   COMPLETED = 'COMPLETED',
+  ARCHIVED = 'ARCHIVED',
 }
 
 export enum GroupStatus {

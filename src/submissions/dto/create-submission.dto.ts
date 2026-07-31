@@ -1,11 +1,13 @@
-import { IsString, IsUUID, MinLength } from 'class-validator';
+import { IsInt, IsString, Min, MinLength } from 'class-validator';
 
 export class CreateSubmissionDto {
-  @IsUUID()
-  campaignId: string;
+  @IsInt()
+  @Min(1)
+  campaignId: number;
 
-  @IsUUID()
-  groupId: string;
+  @IsInt()
+  @Min(1)
+  groupId: number;
 
   @IsString()
   @MinLength(1)

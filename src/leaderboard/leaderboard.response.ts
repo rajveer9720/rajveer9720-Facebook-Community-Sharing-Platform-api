@@ -1,6 +1,6 @@
 export interface LeaderboardEntryResponse {
   rank: number;
-  workerId: string;
+  workerId: number;
   workerName: string;
   approvedPosts: number;
   earningsMinor: number;
@@ -8,7 +8,7 @@ export interface LeaderboardEntryResponse {
 }
 
 export interface AchievementResponse {
-  id: string;
+  id: number;
   title: string;
   description: string;
   unlockedAt: string | null;

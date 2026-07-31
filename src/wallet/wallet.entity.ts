@@ -4,7 +4,7 @@ import { User } from '../users/user.entity';
 @Entity('wallets')
 export class Wallet {
   @PrimaryColumn()
-  workerId: string;
+  workerId: number;
 
   @OneToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workerId' })

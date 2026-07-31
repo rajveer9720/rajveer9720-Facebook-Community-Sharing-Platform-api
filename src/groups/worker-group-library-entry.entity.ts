@@ -4,18 +4,18 @@ import { FacebookGroup } from './facebook-group.entity';
 
 @Entity('worker_group_library_entries')
 export class WorkerGroupLibraryEntry {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column()
-  workerId: string;
+  workerId: number;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workerId' })
   worker: User;
 
   @Column()
-  groupId: string;
+  groupId: number;
 
   @ManyToOne(() => FacebookGroup, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'groupId' })

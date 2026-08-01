@@ -1,9 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Storage } from '@google-cloud/storage';
+import { File as GcsFile, Storage } from '@google-cloud/storage';
 import * as crypto from 'crypto';
 
-export interface ProofUploadUrlResponse {
+export interface SignedUploadUrlResponse {
   uploadUrl: string;
   objectKey: string;
   publicUrl: string;
@@ -12,6 +12,7 @@ export interface ProofUploadUrlResponse {
 
 @Injectable()
 export class GcsStorageService {
+  private readonly logger = new Logger(GcsStorageService.name);
   private readonly storage: Storage;
   private readonly bucketName: string;
   private readonly uploadExpirationSeconds: number;
@@ -28,19 +29,71 @@ export class GcsStorageService {
     campaignId?: number;
     fileName: string;
     contentType: string;
-  }): Promise<ProofUploadUrlResponse> {
+  }): Promise<SignedUploadUrlResponse> {
+    const objectKey = this.buildObjectKey(
+      `submission-proofs/${params.workerId}/${params.campaignId ?? 'general'}`,
+      params.fileName,
+    );
+    return this.createSignedUploadUrl(objectKey, params.contentType);
+  }
+
+  async uploadCampaignMedia(adminId: number, file: Express.Multer.File): Promise<{ mediaUrl: string; objectKey: string }> {
     if (!this.bucketName) {
       throw new BadRequestException('GCP storage bucket is not configured');
     }
 
-    const objectKey = this.buildObjectKey(params.workerId, params.campaignId, params.fileName);
+    const objectKey = this.buildObjectKey(`campaign-media/${adminId}`, file.originalname);
+    const blob = this.storage.bucket(this.bucketName).file(objectKey);
+
+    try {
+      await this.writeObject(blob, file, { predefinedAcl: 'publicRead' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/uniform bucket-level access/i.test(message)) {
+        this.logger.error(`Campaign media upload failed for object ${objectKey}: ${message}`, error instanceof Error ? error.stack : undefined);
+        throw new BadRequestException('Media upload failed. Please try again.');
+      }
+      this.logger.warn(
+        `Bucket ${this.bucketName} has uniform bucket-level access enabled; retrying upload without a per-object ACL. ` +
+          'Grant "allUsers" the Storage Object Viewer role on the bucket for uploaded media to be publicly viewable.',
+      );
+      try {
+        await this.writeObject(blob, file, {});
+      } catch (retryError) {
+        const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
+        this.logger.error(`Campaign media upload retry failed for object ${objectKey}: ${retryMessage}`, retryError instanceof Error ? retryError.stack : undefined);
+        throw new BadRequestException('Media upload failed. Please try again.');
+      }
+    }
+
+    return { mediaUrl: this.buildPublicUrl(objectKey), objectKey };
+  }
+
+  private writeObject(blob: GcsFile, file: Express.Multer.File, options: { predefinedAcl?: 'publicRead' }): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const blobStream = blob.createWriteStream({
+        resumable: false,
+        contentType: file.mimetype,
+        ...options,
+      });
+      blobStream.on('error', reject);
+      blobStream.on('finish', () => resolve());
+      blobStream.end(file.buffer);
+    });
+  }
+
+  private async createSignedUploadUrl(objectKey: string, contentType: string): Promise<SignedUploadUrlResponse> {
+    if (!this.bucketName) {
+      throw new BadRequestException('GCP storage bucket is not configured');
+    }
+
     const expiresAt = new Date(Date.now() + this.uploadExpirationSeconds * 1000);
     const file = this.storage.bucket(this.bucketName).file(objectKey);
     const [uploadUrl] = await file.getSignedUrl({
       version: 'v4',
       action: 'write',
       expires: expiresAt,
-      contentType: params.contentType,
+      contentType,
     });
 
     return {
@@ -51,10 +104,9 @@ export class GcsStorageService {
     };
   }
 
-  private buildObjectKey(workerId: number, campaignId: number | undefined, fileName: string): string {
+  private buildObjectKey(prefix: string, fileName: string): string {
     const extension = this.extractFileExtension(fileName);
-    const safeCampaignId = campaignId ?? 'general';
-    return `submission-proofs/${workerId}/${safeCampaignId}/${Date.now()}-${crypto.randomUUID()}${extension}`;
+    return `${prefix}/${Date.now()}-${crypto.randomUUID()}${extension}`;
   }
 
   private extractFileExtension(fileName: string): string {

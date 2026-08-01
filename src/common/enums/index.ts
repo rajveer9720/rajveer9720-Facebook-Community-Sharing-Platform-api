@@ -4,10 +4,14 @@ export enum UserRole {
 }
 
 export enum CampaignCategory {
-  TECHNOLOGY = 'Technology',
+  CRYPTO = 'Crypto',
   BUSINESS = 'Business',
+  INVESTMENT = 'Investment',
+  TRADING = 'Trading',
   FINANCE = 'Finance',
+  TECHNOLOGY = 'Technology',
   JOBS = 'Jobs',
+  MLM = 'MLM',
 }
 
 export enum CampaignPriority {

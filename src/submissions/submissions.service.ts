@@ -11,7 +11,7 @@ import type { CampaignMediaVariant } from '../campaigns/campaign.entity';
 import { GroupsService } from '../groups/groups.service';
 import { WalletService } from '../wallet/wallet.service';
 import { RequestUser } from '../common/types/jwt-payload';
-import { GcsStorageService, ProofUploadUrlResponse } from '../storage/gcs-storage.service';
+import { GcsStorageService, SignedUploadUrlResponse } from '../storage/gcs-storage.service';
 import { CreateProofUploadUrlDto } from './dto/create-proof-upload-url.dto';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { WorkerPerformanceService } from '../worker-performance/worker-performance.service';
@@ -31,7 +31,7 @@ export class SubmissionsService {
     private readonly submissionAiVerificationService: SubmissionAiVerificationService,
   ) {}
 
-  async createProofUploadUrl(workerId: number, dto: CreateProofUploadUrlDto): Promise<ProofUploadUrlResponse> {
+  async createProofUploadUrl(workerId: number, dto: CreateProofUploadUrlDto): Promise<SignedUploadUrlResponse> {
     return this.storageService.createSubmissionProofUploadUrl({
       workerId,
       campaignId: dto.campaignId,

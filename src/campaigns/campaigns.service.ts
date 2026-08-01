@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -8,6 +8,7 @@ import { CampaignResponse } from './campaign.response';
 import { CampaignStatus, UserRole } from '../common/enums';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { UsersService } from '../users/users.service';
+import { GcsStorageService } from '../storage/gcs-storage.service';
 
 @Injectable()
 export class CampaignsService {
@@ -16,7 +17,15 @@ export class CampaignsService {
     private readonly auditLogsService: AuditLogsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly usersService: UsersService,
+    private readonly storageService: GcsStorageService,
   ) {}
+
+  async uploadMedia(adminId: number, file: Express.Multer.File): Promise<{ mediaUrl: string; objectKey: string }> {
+    if (!file) {
+      throw new BadRequestException('Media file is required');
+    }
+    return this.storageService.uploadCampaignMedia(adminId, file);
+  }
 
   async findAll(status?: CampaignStatus): Promise<CampaignResponse[]> {
     const campaigns = await this.campaignsRepository.find({

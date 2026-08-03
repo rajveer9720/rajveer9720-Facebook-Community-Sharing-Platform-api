@@ -2,9 +2,9 @@ import { BadRequestException, Injectable, ConflictException, NotFoundException }
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { CreateCampaignDto } from '../dto/campaigns.dto';
 import { Campaign } from './campaign.entity';
-import { CreateCampaignDto } from './dto/create-campaign.dto';
-import { CampaignResponse } from './campaign.response';
+import { CampaignResponse } from '../interfaces/campaigns.interface';
 import { CampaignStatus, UserRole } from '../common/enums';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { UsersService } from '../users/users.service';
@@ -25,6 +25,17 @@ export class CampaignsService {
       throw new BadRequestException('Media file is required');
     }
     return this.storageService.uploadCampaignMedia(adminId, file);
+  }
+
+  async getMediaDownload(objectKeyOrUrl: string) {
+    return this.storageService.downloadFile(objectKeyOrUrl);
+  }
+
+  async getMediaSignedUrl(objectKeyOrUrl: string): Promise<{ signedUrl: string; expiresAt: string }> {
+    const expirationSeconds = 3600;
+    const signedUrl = await this.storageService.createSignedReadUrl(objectKeyOrUrl, expirationSeconds);
+    const expiresAt = new Date(Date.now() + expirationSeconds * 1000).toISOString();
+    return { signedUrl, expiresAt };
   }
 
   async findAll(status?: CampaignStatus): Promise<CampaignResponse[]> {

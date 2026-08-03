@@ -3,10 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { BCRYPT_SALT_ROUNDS, PASSWORD_RESET_TOKEN_BYTES, PASSWORD_RESET_TOKEN_EXPIRY_MS } from '../common/constants/auth.constants';
+import { RegisterDto } from '../dto/auth.dto';
 import { UsersService } from '../users/users.service';
-import { JwtPayload } from '../common/types/jwt-payload';
-import { AuthUser, ForgotPasswordResponse, LoginResponse, MessageResponse } from './auth-user';
-import { RegisterDto } from './dto/register.dto';
+import { JwtPayload } from '../interfaces/auth.interface';
+import { AuthUser, ForgotPasswordResponse, LoginResponse, MessageResponse } from '../interfaces/auth.interface';
 import { WalletService } from '../wallet/wallet.service';
 
 @Injectable()
@@ -38,7 +39,7 @@ export class AuthService {
       throw new ConflictException('Email already in use');
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
     const user = await this.usersService.createWorker({
       email: dto.email,
       passwordHash,
@@ -87,9 +88,9 @@ export class AuthService {
       return { message: 'If the account exists, a reset token has been generated', resetToken: null };
     }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenHash = await bcrypt.hash(resetToken, 10);
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const resetToken = crypto.randomBytes(PASSWORD_RESET_TOKEN_BYTES).toString('hex');
+    const resetTokenHash = await bcrypt.hash(resetToken, BCRYPT_SALT_ROUNDS);
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_EXPIRY_MS);
     await this.usersService.updatePasswordResetToken(user.id, resetTokenHash, expiresAt);
 
     return {
@@ -109,7 +110,7 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
     await this.usersService.updatePasswordHash(user.id, passwordHash);
     await this.usersService.updatePasswordResetToken(user.id, null, null);
     await this.usersService.updateRefreshTokenHash(user.id, null);
@@ -133,7 +134,7 @@ export class AuthService {
       expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN'),
     });
 
-    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    const refreshTokenHash = await bcrypt.hash(refreshToken, BCRYPT_SALT_ROUNDS);
     await this.usersService.updateRefreshTokenHash(user.id, refreshTokenHash);
 
     return {

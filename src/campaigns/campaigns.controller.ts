@@ -1,16 +1,16 @@
-import { BadRequestException, Body, Controller, Get, Param, ParseIntPipe, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, ParseIntPipe, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { CampaignsService } from './campaigns.service';
-import { CreateCampaignDto } from './dto/create-campaign.dto';
+import { ALLOWED_MEDIA_MIME_TYPES } from '../common/constants/media.constants';
 import { CampaignStatus, UserRole } from '../common/enums';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { RequestUser } from '../common/types/jwt-payload';
+import { RequestUser } from '../interfaces/auth.interface';
+import { CampaignsService } from './campaigns.service';
 
-const ALLOWED_MEDIA_MIME_TYPES = /^(image|video)\//;
 const MAX_MEDIA_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 
 @Controller('campaigns')
@@ -22,16 +22,29 @@ export class CampaignsController {
     return this.campaignsService.findAll(status);
   }
 
+  @Get('media-download')
+  async downloadMedia(@Query('objectKey') objectKey: string, @Res() res: Response) {
+    if (!objectKey) {
+      throw new BadRequestException('objectKey query param is required');
+    }
+    const { stream, contentType, fileName } = await this.campaignsService.getMediaDownload(objectKey);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    stream.pipe(res);
+  }
+
   @Get(':id')
   findById(@Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.findById(id);
   }
 
-  @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  create(@CurrentUser() user: RequestUser, @Body() dto: CreateCampaignDto) {
-    return this.campaignsService.create(dto, user.id);
+  @Post('media-signed-url')
+  getMediaSignedUrl(@Body() body: { objectKey: string }) {
+    if (!body?.objectKey) {
+      throw new BadRequestException('objectKey is required');
+    }
+    return this.campaignsService.getMediaSignedUrl(body.objectKey);
   }
 
   @Post('media-upload')

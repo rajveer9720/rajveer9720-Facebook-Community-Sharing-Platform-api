@@ -2,7 +2,7 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '../enums';
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import { RequestUser } from '../types/jwt-payload';
+import { RequestUser } from '../../interfaces/auth.interface';
 
 @Injectable()
 export class RolesGuard implements CanActivate {

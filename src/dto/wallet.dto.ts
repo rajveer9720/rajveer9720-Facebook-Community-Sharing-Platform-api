@@ -1,5 +1,5 @@
 import { IsEnum, IsInt, IsObject, Min } from 'class-validator';
-import { PaymentMethod } from '../../common/enums';
+import { PaymentMethod, WithdrawalReviewAction } from '../common/enums';
 
 export class CreateWithdrawalDto {
   @IsInt()
@@ -11,4 +11,9 @@ export class CreateWithdrawalDto {
 
   @IsObject()
   paymentDetails: Record<string, string>;
+}
+
+export class ReviewWithdrawalDto {
+  @IsEnum(WithdrawalReviewAction)
+  action: WithdrawalReviewAction;
 }

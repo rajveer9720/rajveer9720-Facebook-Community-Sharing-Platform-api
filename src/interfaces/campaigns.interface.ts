@@ -1,5 +1,10 @@
 import { CampaignCategory, CampaignPriority, CampaignStatus } from '../common/enums';
-import type { CampaignMediaVariant } from './campaign.entity';
+
+export interface CampaignMediaVariant {
+  mediaUrl: string;
+  mediaType: 'IMAGE' | 'VIDEO';
+  caption: string;
+}
 
 export interface CampaignResponse {
   id: number;

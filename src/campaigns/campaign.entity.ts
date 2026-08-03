@@ -1,11 +1,6 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { CampaignCategory, CampaignPriority, CampaignStatus } from '../common/enums';
-
-export interface CampaignMediaVariant {
-  mediaUrl: string;
-  mediaType: 'IMAGE' | 'VIDEO';
-  caption: string;
-}
+import { CampaignMediaVariant } from '../interfaces/campaigns.interface';
 
 @Entity('campaigns')
 export class Campaign {

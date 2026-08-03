@@ -2,7 +2,7 @@ import { Controller, Get, UseGuards } from '@nestjs/common';
 import { LeaderboardService } from './leaderboard.service';
 import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { RequestUser } from '../common/types/jwt-payload';
+import { RequestUser } from '../interfaces/auth.interface';
 
 @Controller('leaderboard')
 @UseGuards(OptionalJwtAuthGuard)

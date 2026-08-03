@@ -4,7 +4,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../common/enums';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
-import { RequestUser } from '../common/types/jwt-payload';
+import { RequestUser } from '../interfaces/auth.interface';
 import { WorkerPerformanceService } from './worker-performance.service';
 
 @Controller()

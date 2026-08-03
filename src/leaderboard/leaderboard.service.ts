@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Achievement } from './achievement.entity';
 import { Submission } from '../submissions/submission.entity';
-import { AchievementResponse, LeaderboardEntryResponse } from './leaderboard.response';
+import { AchievementResponse, LeaderboardEntryResponse } from '../interfaces/leaderboard.interface';
 import { SubmissionStatus } from '../common/enums';
 
 interface LeaderboardRow {

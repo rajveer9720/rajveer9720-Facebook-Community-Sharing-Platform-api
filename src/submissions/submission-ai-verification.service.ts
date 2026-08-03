@@ -1,20 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AiVerificationResult } from '../interfaces/submissions.interface';
 
 interface OpenAiVerificationPayload {
-  screenshotVisible: boolean;
-  ocrText: string;
-  captionMatch: boolean;
-  imageMatch: boolean;
-  groupNameMatch: boolean;
-  dateVisible: boolean;
-  timeVisible: boolean;
-  confidence: number;
-  notes: string;
-}
-
-export interface AiVerificationResult {
-  available: boolean;
   screenshotVisible: boolean;
   ocrText: string;
   captionMatch: boolean;

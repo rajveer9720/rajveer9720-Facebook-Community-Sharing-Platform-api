@@ -1,15 +1,12 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { CreateGroupDiscoveryDto, ModerateGroupDto, RecommendGroupsDto, UpdateGroupDto } from '../dto/groups.dto';
 import { GroupsService } from './groups.service';
-import { CreateGroupDiscoveryDto } from './dto/create-group-discovery.dto';
-import { RecommendGroupsDto } from './dto/recommend-groups.dto';
-import { ModerateGroupDto } from './dto/moderate-group.dto';
-import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupStatus, UserRole } from '../common/enums';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { RequestUser } from '../common/types/jwt-payload';
+import { RequestUser } from '../interfaces/auth.interface';
 
 @Controller()
 export class GroupsController {

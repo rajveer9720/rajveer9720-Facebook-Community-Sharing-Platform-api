@@ -5,7 +5,7 @@ import { Submission } from '../submissions/submission.entity';
 import { Campaign } from '../campaigns/campaign.entity';
 import { FacebookGroup } from '../groups/facebook-group.entity';
 import { User } from '../users/user.entity';
-import { AdminOverviewStatsResponse, AnalyticsOverviewResponse, CategoryPerformanceResponse } from './analytics.response';
+import { AdminOverviewStatsResponse, AnalyticsOverviewResponse, CategoryPerformanceResponse } from '../interfaces/analytics.interface';
 import { CampaignStatus, GroupStatus, SubmissionStatus, UserRole } from '../common/enums';
 
 interface CategoryRow {

@@ -1,0 +1,3 @@
+export const BCRYPT_SALT_ROUNDS = 10;
+export const PASSWORD_RESET_TOKEN_BYTES = 32;
+export const PASSWORD_RESET_TOKEN_EXPIRY_MS = 60 * 60 * 1000;

@@ -1,23 +1,22 @@
-import { IsArray, IsBoolean, IsEnum, IsISO8601, IsInt, IsIn, IsString, Min, MinLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import { CampaignCategory, CampaignPriority } from '../../common/enums';
+import { IsArray, IsBoolean, IsEnum, IsISO8601, IsIn, IsInt, Min, ValidateNested } from 'class-validator';
+import { CAMPAIGN_MEDIA_TYPES } from '../common/constants/media.constants';
+import { CampaignCategory, CampaignPriority } from '../common/enums';
+import { NonEmptyStringField } from '../common/validators/field.decorators';
 
 export class CampaignMediaVariantDto {
-  @IsString()
-  @MinLength(1)
+  @NonEmptyStringField()
   mediaUrl: string;
 
-  @IsIn(['IMAGE', 'VIDEO'])
+  @IsIn(CAMPAIGN_MEDIA_TYPES)
   mediaType: 'IMAGE' | 'VIDEO';
 
-  @IsString()
-  @MinLength(1)
+  @NonEmptyStringField()
   caption: string;
 }
 
 export class CreateCampaignDto {
-  @IsString()
-  @MinLength(1)
+  @NonEmptyStringField()
   name: string;
 
   @IsEnum(CampaignCategory)
@@ -52,8 +51,7 @@ export class CreateCampaignDto {
   @Min(1)
   dailyPostingLimit: number;
 
-  @IsString()
-  @MinLength(1)
+  @NonEmptyStringField()
   instructions: string;
 
   @IsArray()

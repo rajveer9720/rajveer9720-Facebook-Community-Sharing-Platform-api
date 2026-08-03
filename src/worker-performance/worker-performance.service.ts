@@ -5,7 +5,7 @@ import { User } from '../users/user.entity';
 import { Submission } from '../submissions/submission.entity';
 import { SubmissionStatus, UserRole } from '../common/enums';
 import { WorkerPerformance } from './worker-performance.entity';
-import { WorkerPerformanceResponse } from './worker-performance.response';
+import { WorkerPerformanceResponse } from '../interfaces/worker-performance.interface';
 
 @Injectable()
 export class WorkerPerformanceService {

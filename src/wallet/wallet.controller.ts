@@ -1,13 +1,12 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { CreateWithdrawalDto, ReviewWithdrawalDto } from '../dto/wallet.dto';
 import { WalletService } from './wallet.service';
-import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
-import { ReviewWithdrawalDto } from './dto/review-withdrawal.dto';
 import { UserRole, WithdrawalStatus } from '../common/enums';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { RequestUser } from '../common/types/jwt-payload';
+import { RequestUser } from '../interfaces/auth.interface';
 
 @Controller('wallet')
 @UseGuards(JwtAuthGuard)

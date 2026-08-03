@@ -2,10 +2,10 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { CreateWithdrawalDto } from '../dto/wallet.dto';
 import { Wallet } from './wallet.entity';
 import { Withdrawal } from './withdrawal.entity';
-import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
-import { WalletResponse, WithdrawalResponse } from './wallet.response';
+import { WalletResponse, WithdrawalResponse } from '../interfaces/wallet.interface';
 import { WithdrawalReviewAction, WithdrawalStatus } from '../common/enums';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 

@@ -1,13 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, MoreThan, Repository } from 'typeorm';
+import { DEFAULT_GROUP_COOLDOWN_HOURS } from '../common/constants/group.constants';
+import { addHours } from '../common/utils/date.utils';
+import { normalizeComparableText } from '../common/utils/string.utils';
+import { CreateGroupDiscoveryDto, ModerateGroupDto, RecommendGroupsDto, UpdateGroupDto } from '../dto/groups.dto';
 import { FacebookGroup } from './facebook-group.entity';
 import { WorkerGroupLibraryEntry } from './worker-group-library-entry.entity';
-import { CreateGroupDiscoveryDto } from './dto/create-group-discovery.dto';
-import { GroupCoverageStatsResponse, GroupRecommendationResponse, GroupResponse, WorkerGroupLibraryEntryResponse } from './group.response';
-import { RecommendGroupsDto } from './dto/recommend-groups.dto';
-import { ModerateGroupDto } from './dto/moderate-group.dto';
-import { UpdateGroupDto } from './dto/update-group.dto';
+import { GroupCoverageStatsResponse, GroupRecommendationResponse, GroupResponse, WorkerGroupLibraryEntryResponse } from '../interfaces/groups.interface';
 import { CampaignGroupAssignment } from './campaign-group-assignment.entity';
 import { GroupStatus } from '../common/enums';
 import { CampaignsService } from '../campaigns/campaigns.service';
@@ -76,7 +76,7 @@ export class GroupsService {
       engagementScore: 0,
       spamScore: 0,
       blacklisted: false,
-      cooldownHours: 48,
+      cooldownHours: DEFAULT_GROUP_COOLDOWN_HOURS,
       lastWorkerId: null,
       lastCampaignId: null,
       status: GroupStatus.PENDING,
@@ -99,65 +99,17 @@ export class GroupsService {
     });
 
     const blockedGroupIds = new Set(activeAssignments.map((assignment) => assignment.groupId));
-    const workerLibraryEntries = await this.libraryRepository.find({ where: { workerId } });
-    const libraryByGroupId = new Map(workerLibraryEntries.map((entry) => [entry.groupId, entry]));
+    const libraryByGroupId = await this.getLibraryEntriesByGroupId(workerId);
 
     const groups = await this.groupsRepository.find({
       where: { status: GroupStatus.APPROVED, blacklisted: false },
     });
 
-    const eligibleGroups = groups.filter((group) => {
-      if (blockedGroupIds.has(group.id)) {
-        return false;
-      }
-      if (group.category.toLowerCase() !== String(campaign.category).toLowerCase()) {
-        return false;
-      }
-      if (dto.country && group.country.toLowerCase() !== dto.country.toLowerCase()) {
-        return false;
-      }
-      if (dto.language && group.language && group.language.toLowerCase() !== dto.language.toLowerCase()) {
-        return false;
-      }
+    const selectedGroups = this.selectRecommendedGroups(groups, blockedGroupIds, libraryByGroupId, campaign.category, dto, now, limit);
+    const assignmentMap = await this.reserveAssignments(selectedGroups, campaign.id, workerId, now);
+    await this.updateSelectedGroups(selectedGroups, workerId, campaign.id);
 
-      const libraryEntry = libraryByGroupId.get(group.id);
-      if (libraryEntry?.availableAt && libraryEntry.availableAt.getTime() > now.getTime()) {
-        return false;
-      }
-      return true;
-    });
-
-    eligibleGroups.sort((a, b) => this.computeGroupScore(b, libraryByGroupId.get(b.id)) - this.computeGroupScore(a, libraryByGroupId.get(a.id)));
-    const selectedGroups = eligibleGroups.slice(0, limit);
-
-    const assignmentsToSave = selectedGroups.map((group) =>
-      this.assignmentsRepository.create({
-        campaignId: campaign.id,
-        groupId: group.id,
-        workerId,
-        cooldownUntil: new Date(now.getTime() + group.cooldownHours * 60 * 60 * 1000),
-        consumedAt: null,
-      }),
-    );
-
-    const savedAssignments = await this.assignmentsRepository.save(assignmentsToSave);
-    const assignmentMap = new Map(savedAssignments.map((assignment) => [assignment.groupId, assignment]));
-
-    for (const group of selectedGroups) {
-      group.lastWorkerId = workerId;
-      group.lastCampaignId = campaign.id;
-    }
-    await this.groupsRepository.save(selectedGroups);
-
-    return selectedGroups.map((group) => {
-      const assignment = assignmentMap.get(group.id);
-      return {
-        assignmentId: Number(assignment?.id ?? 0),
-        campaignId: campaign.id,
-        cooldownUntil: (assignment?.cooldownUntil ?? now).toISOString(),
-        group: this.toGroupResponse(group),
-      };
-    });
+    return this.toGroupRecommendations(selectedGroups, assignmentMap, campaign.id, now);
   }
 
   async enforceCooldownAvailability(workerId: number, campaignId: number, groupId: number): Promise<void> {
@@ -179,7 +131,7 @@ export class GroupsService {
   async registerApprovedSubmission(workerId: number, campaignId: number, groupId: number): Promise<void> {
     const group = await this.findEntityById(groupId);
     const now = new Date();
-    const cooldownUntil = new Date(now.getTime() + group.cooldownHours * 60 * 60 * 1000);
+    const cooldownUntil = addHours(now, group.cooldownHours);
 
     let entry = await this.libraryRepository.findOne({ where: { workerId, groupId } });
     if (!entry) {
@@ -286,6 +238,100 @@ export class GroupsService {
       score += Math.min(20, libraryEntry.timesUsed * 2);
     }
     return score;
+  }
+
+  private async getLibraryEntriesByGroupId(workerId: number): Promise<Map<number, WorkerGroupLibraryEntry>> {
+    const workerLibraryEntries = await this.libraryRepository.find({ where: { workerId } });
+    return new Map(workerLibraryEntries.map((entry) => [entry.groupId, entry]));
+  }
+
+  private selectRecommendedGroups(
+    groups: FacebookGroup[],
+    blockedGroupIds: Set<number>,
+    libraryByGroupId: Map<number, WorkerGroupLibraryEntry>,
+    campaignCategory: string,
+    dto: RecommendGroupsDto,
+    now: Date,
+    limit: number,
+  ): FacebookGroup[] {
+    return groups
+      .filter((group) => this.isEligibleGroup(group, blockedGroupIds, libraryByGroupId, campaignCategory, dto, now))
+      .sort((a, b) => this.computeGroupScore(b, libraryByGroupId.get(b.id)) - this.computeGroupScore(a, libraryByGroupId.get(a.id)))
+      .slice(0, limit);
+  }
+
+  private isEligibleGroup(
+    group: FacebookGroup,
+    blockedGroupIds: Set<number>,
+    libraryByGroupId: Map<number, WorkerGroupLibraryEntry>,
+    campaignCategory: string,
+    dto: RecommendGroupsDto,
+    now: Date,
+  ): boolean {
+    if (blockedGroupIds.has(group.id)) {
+      return false;
+    }
+
+    if (normalizeComparableText(group.category) !== normalizeComparableText(String(campaignCategory))) {
+      return false;
+    }
+
+    if (dto.country && normalizeComparableText(group.country) !== normalizeComparableText(dto.country)) {
+      return false;
+    }
+
+    if (dto.language && group.language && normalizeComparableText(group.language) !== normalizeComparableText(dto.language)) {
+      return false;
+    }
+
+    const libraryEntry = libraryByGroupId.get(group.id);
+    return !(libraryEntry?.availableAt && libraryEntry.availableAt.getTime() > now.getTime());
+  }
+
+  private async reserveAssignments(
+    groups: FacebookGroup[],
+    campaignId: number,
+    workerId: number,
+    now: Date,
+  ): Promise<Map<number, CampaignGroupAssignment>> {
+    const assignmentsToSave = groups.map((group) =>
+      this.assignmentsRepository.create({
+        campaignId,
+        groupId: group.id,
+        workerId,
+        cooldownUntil: addHours(now, group.cooldownHours),
+        consumedAt: null,
+      }),
+    );
+
+    const savedAssignments = await this.assignmentsRepository.save(assignmentsToSave);
+    return new Map(savedAssignments.map((assignment) => [assignment.groupId, assignment]));
+  }
+
+  private async updateSelectedGroups(groups: FacebookGroup[], workerId: number, campaignId: number): Promise<void> {
+    for (const group of groups) {
+      group.lastWorkerId = workerId;
+      group.lastCampaignId = campaignId;
+    }
+
+    await this.groupsRepository.save(groups);
+  }
+
+  private toGroupRecommendations(
+    groups: FacebookGroup[],
+    assignmentMap: Map<number, CampaignGroupAssignment>,
+    campaignId: number,
+    fallbackDate: Date,
+  ): GroupRecommendationResponse[] {
+    return groups.map((group) => {
+      const assignment = assignmentMap.get(group.id);
+      return {
+        assignmentId: Number(assignment?.id ?? 0),
+        campaignId,
+        cooldownUntil: (assignment?.cooldownUntil ?? fallbackDate).toISOString(),
+        group: this.toGroupResponse(group),
+      };
+    });
   }
 
   private toGroupResponse(group: FacebookGroup): GroupResponse {

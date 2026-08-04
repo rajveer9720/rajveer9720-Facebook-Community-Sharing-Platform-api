@@ -1,5 +1,5 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { User } from '../users/user.entity';
+import { Worker } from '../workers/worker.entity';
 import { PaymentMethod, WithdrawalStatus } from '../common/enums';
 
 @Entity('withdrawals')
@@ -10,9 +10,9 @@ export class Withdrawal {
   @Column()
   workerId: number;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Worker, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workerId' })
-  worker: User;
+  worker: Worker;
 
   @Column()
   amountMinor: number;

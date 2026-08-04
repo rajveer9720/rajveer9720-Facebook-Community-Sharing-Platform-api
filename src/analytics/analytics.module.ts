@@ -3,12 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Submission } from '../submissions/submission.entity';
 import { Campaign } from '../campaigns/campaign.entity';
 import { FacebookGroup } from '../groups/facebook-group.entity';
-import { User } from '../users/user.entity';
+import { Worker } from '../workers/worker.entity';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Submission, Campaign, FacebookGroup, User])],
+  imports: [TypeOrmModule.forFeature([Submission, Campaign, FacebookGroup, Worker])],
   controllers: [AnalyticsController],
   providers: [AnalyticsService],
 })

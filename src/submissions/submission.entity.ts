@@ -1,5 +1,5 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { User } from '../users/user.entity';
+import { Worker } from '../workers/worker.entity';
 import { Campaign } from '../campaigns/campaign.entity';
 import { FacebookGroup } from '../groups/facebook-group.entity';
 import { SubmissionStatus } from '../common/enums';
@@ -19,9 +19,9 @@ export class Submission {
   @Column()
   workerId: number;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Worker, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workerId' })
-  worker: User;
+  worker: Worker;
 
   @Column()
   groupId: number;

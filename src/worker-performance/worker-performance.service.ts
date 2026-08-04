@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { User } from '../users/user.entity';
+
+import { Worker } from '../workers/worker.entity';
 import { Submission } from '../submissions/submission.entity';
-import { SubmissionStatus, UserRole } from '../common/enums';
+import { SubmissionStatus } from '../common/enums';
 import { WorkerPerformance } from './worker-performance.entity';
 import { WorkerPerformanceResponse } from '../interfaces/worker-performance.interface';
 
@@ -14,8 +15,8 @@ export class WorkerPerformanceService {
     private readonly performanceRepository: Repository<WorkerPerformance>,
     @InjectRepository(Submission)
     private readonly submissionsRepository: Repository<Submission>,
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
+    @InjectRepository(Worker)
+    private readonly workersRepository: Repository<Worker>,
   ) {}
 
   async getForWorker(workerId: number): Promise<WorkerPerformanceResponse> {
@@ -23,23 +24,25 @@ export class WorkerPerformanceService {
     if (!performance) {
       performance = await this.recomputeForWorker(workerId);
     }
-    return this.toResponse(performance);
+    const worker = await this.workersRepository.findOne({ where: { id: workerId } });
+    return this.toResponse(performance, worker ?? undefined);
   }
 
   async listWorkersPerformance(limit = 100): Promise<WorkerPerformanceResponse[]> {
-    const workers = await this.usersRepository.find({ where: { role: UserRole.WORKER }, take: limit });
+    const workers = await this.workersRepository.find({ take: limit });
     const workerIds = workers.map((worker) => worker.id);
     if (workerIds.length === 0) {
       return [];
     }
 
+    const workersById = new Map(workers.map((worker) => [worker.id, worker]));
     const performances = await this.performanceRepository.find({ where: { workerId: In(workerIds) } });
     const byWorkerId = new Map(performances.map((entry) => [entry.workerId, entry]));
 
     const results: WorkerPerformanceResponse[] = [];
     for (const workerId of workerIds) {
       const performance = byWorkerId.get(workerId) ?? (await this.recomputeForWorker(workerId));
-      results.push(this.toResponse(performance));
+      results.push(this.toResponse(performance, workersById.get(workerId)));
     }
 
     return results.sort((a, b) => b.trustScore - a.trustScore);
@@ -148,9 +151,11 @@ export class WorkerPerformanceService {
     }
   }
 
-  private toResponse(performance: WorkerPerformance): WorkerPerformanceResponse {
+  private toResponse(performance: WorkerPerformance, worker?: Worker): WorkerPerformanceResponse {
     return {
       workerId: performance.workerId,
+      workerName: worker ? `${worker.firstName} ${worker.lastName}` : '',
+      email: worker?.email ?? '',
       totalSubmissions: performance.totalSubmissions,
       approvedCount: performance.approvedCount,
       rejectedCount: performance.rejectedCount,

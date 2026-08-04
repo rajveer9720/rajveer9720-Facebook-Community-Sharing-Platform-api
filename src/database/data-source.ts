@@ -1,7 +1,8 @@
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import { DataSource } from 'typeorm';
-import { User } from '../users/user.entity';
+import { Admin } from '../admins/admin.entity';
+import { Worker } from '../workers/worker.entity';
 import { Campaign } from '../campaigns/campaign.entity';
 import { FacebookGroup } from '../groups/facebook-group.entity';
 import { WorkerGroupLibraryEntry } from '../groups/worker-group-library-entry.entity';
@@ -24,7 +25,8 @@ export const AppDataSource = new DataSource({
   password: process.env.DB_PASSWORD ?? '',
   database: process.env.DB_DATABASE ?? 'fcsp',
   entities: [
-    User,
+    Admin,
+    Worker,
     Campaign,
     FacebookGroup,
     WorkerGroupLibraryEntry,

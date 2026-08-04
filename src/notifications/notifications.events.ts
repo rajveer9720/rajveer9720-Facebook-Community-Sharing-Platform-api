@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { UsersService } from '../users/users.service';
+import { WorkersService } from '../workers/workers.service';
 import { NotificationsService } from './notifications.service';
 import { NotificationsEmailService } from './notifications-email.service';
 
@@ -47,7 +47,7 @@ export class NotificationsEvents {
   constructor(
     private readonly notificationsService: NotificationsService,
     private readonly notificationsEmailService: NotificationsEmailService,
-    private readonly usersService: UsersService,
+    private readonly workersService: WorkersService,
   ) {}
 
   @OnEvent('submission.created')
@@ -91,7 +91,7 @@ export class NotificationsEvents {
       },
     });
 
-    const user = await this.usersService.findById(event.workerId);
+    const user = await this.workersService.findById(event.workerId);
     if (user) {
       await this.notificationsEmailService.send(user.email, title, message);
     }
@@ -111,7 +111,7 @@ export class NotificationsEvents {
         metadata: { campaignId: event.campaignId },
       });
 
-      const user = await this.usersService.findById(workerId);
+      const user = await this.workersService.findById(workerId);
       if (user) {
         await this.notificationsEmailService.send(user.email, title, message);
       }
@@ -132,7 +132,7 @@ export class NotificationsEvents {
         metadata: { campaignId: event.campaignId, endDate: event.endDate },
       });
 
-      const user = await this.usersService.findById(workerId);
+      const user = await this.workersService.findById(workerId);
       if (user) {
         await this.notificationsEmailService.send(user.email, title, message);
       }
@@ -163,7 +163,7 @@ export class NotificationsEvents {
       metadata: { withdrawalId: event.withdrawalId },
     });
 
-    const user = await this.usersService.findById(event.workerId);
+    const user = await this.workersService.findById(event.workerId);
     if (user) {
       await this.notificationsEmailService.send(user.email, title, message);
     }

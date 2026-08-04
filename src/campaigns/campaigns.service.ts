@@ -2,12 +2,12 @@ import { BadRequestException, Injectable, ConflictException, NotFoundException }
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CreateCampaignDto } from '../dto/campaigns.dto';
+import { CreateCampaignDto, UpdateCampaignDto } from '../dto/campaigns.dto';
 import { Campaign } from './campaign.entity';
 import { CampaignResponse } from '../interfaces/campaigns.interface';
-import { CampaignStatus, UserRole } from '../common/enums';
+import { CampaignStatus } from '../common/enums';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
-import { UsersService } from '../users/users.service';
+import { WorkersService } from '../workers/workers.service';
 import { GcsStorageService } from '../storage/gcs-storage.service';
 
 @Injectable()
@@ -16,7 +16,7 @@ export class CampaignsService {
     @InjectRepository(Campaign) private readonly campaignsRepository: Repository<Campaign>,
     private readonly auditLogsService: AuditLogsService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly usersService: UsersService,
+    private readonly workersService: WorkersService,
     private readonly storageService: GcsStorageService,
   ) {}
 
@@ -91,13 +91,62 @@ export class CampaignsService {
       metadata: { name: saved.name, category: saved.category, status: saved.status },
     });
 
-    const workers = await this.usersService.listByRole(UserRole.WORKER);
+    const workers = await this.workersService.findAll();
     this.eventEmitter.emit('campaign.created', {
       campaignId: saved.id,
       campaignName: saved.name,
       workerIds: workers.map((worker) => worker.id),
     });
 
+    return this.toResponse(saved);
+  }
+
+  async update(id: number, dto: UpdateCampaignDto, actorId?: number): Promise<CampaignResponse> {
+    const campaign = await this.findCampaignEntity(id);
+
+    if (dto.name !== undefined) campaign.name = dto.name;
+    if (dto.category !== undefined) campaign.category = dto.category;
+    if (dto.priority !== undefined) campaign.priority = dto.priority;
+    if (dto.startDate !== undefined) campaign.startDate = new Date(dto.startDate);
+    if (dto.endDate !== undefined) campaign.endDate = new Date(dto.endDate);
+    if (dto.budgetMinor !== undefined) campaign.budgetMinor = dto.budgetMinor;
+    if (dto.rewardPerPostMinor !== undefined) campaign.rewardPerPostMinor = dto.rewardPerPostMinor;
+    if (dto.maximumWorkers !== undefined) campaign.maximumWorkers = dto.maximumWorkers;
+    if (dto.maximumPostsPerWorker !== undefined) campaign.maximumPostsPerWorker = dto.maximumPostsPerWorker;
+    if (dto.dailyPostingLimit !== undefined) campaign.dailyPostingLimit = dto.dailyPostingLimit;
+    if (dto.instructions !== undefined) campaign.instructions = dto.instructions;
+    if (dto.mediaVariants !== undefined) campaign.mediaVariants = dto.mediaVariants;
+    if (dto.screenshotRequired !== undefined) campaign.screenshotRequired = dto.screenshotRequired;
+    if (dto.facebookPostUrlRequired !== undefined) campaign.facebookPostUrlRequired = dto.facebookPostUrlRequired;
+    if (dto.groupNameRequired !== undefined) campaign.groupNameRequired = dto.groupNameRequired;
+    if (dto.manualReviewRequired !== undefined) campaign.manualReviewRequired = dto.manualReviewRequired;
+    if (dto.aiVerificationEnabled !== undefined) campaign.aiVerificationEnabled = dto.aiVerificationEnabled;
+    if (dto.autoApprovalEnabled !== undefined) campaign.autoApprovalEnabled = dto.autoApprovalEnabled;
+
+    if (dto.endDate !== undefined && campaign.endDate.getTime() <= campaign.startDate.getTime()) {
+      throw new BadRequestException('End date must be after the start date');
+    }
+
+    const saved = await this.campaignsRepository.save(campaign);
+    await this.auditLogsService.record({
+      actorId,
+      action: 'campaign.update',
+      resourceType: 'Campaign',
+      resourceId: saved.id,
+      metadata: { changed: Object.keys(dto) },
+    });
+    return this.toResponse(saved);
+  }
+
+  async activate(id: number, actorId?: number): Promise<CampaignResponse> {
+    const campaign = await this.findCampaignEntity(id);
+    if (campaign.status !== CampaignStatus.DRAFT) {
+      throw new ConflictException('Only draft campaigns can be activated');
+    }
+
+    campaign.status = CampaignStatus.ACTIVE;
+    const saved = await this.campaignsRepository.save(campaign);
+    await this.auditLogsService.record({ actorId, action: 'campaign.activate', resourceType: 'Campaign', resourceId: saved.id });
     return this.toResponse(saved);
   }
 
@@ -221,7 +270,7 @@ export class CampaignsService {
   private async emitEndingSoonCampaignNotifications(campaigns: Campaign[]): Promise<void> {
     const now = Date.now();
     const oneDayMs = 24 * 60 * 60 * 1000;
-    const workers = await this.usersService.listByRole(UserRole.WORKER);
+    const workers = await this.workersService.findAll();
 
     const toNotify = campaigns.filter((campaign) => {
       if (campaign.status !== CampaignStatus.ACTIVE) return false;

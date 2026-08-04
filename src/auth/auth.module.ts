@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { UsersModule } from '../users/users.module';
+import { AdminsModule } from '../admins/admins.module';
+import { WorkersModule } from '../workers/workers.module';
 import { WalletModule } from '../wallet/wallet.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -10,7 +11,8 @@ import { JwtStrategy } from './jwt.strategy';
 
 @Module({
   imports: [
-    UsersModule,
+    AdminsModule,
+    WorkersModule,
     WalletModule,
     PassportModule,
     JwtModule.registerAsync({

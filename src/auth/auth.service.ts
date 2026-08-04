@@ -5,93 +5,113 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { BCRYPT_SALT_ROUNDS, PASSWORD_RESET_TOKEN_BYTES, PASSWORD_RESET_TOKEN_EXPIRY_MS } from '../common/constants/auth.constants';
 import { RegisterDto } from '../dto/auth.dto';
-import { UsersService } from '../users/users.service';
+import { AdminsService } from '../admins/admins.service';
+import { Admin } from '../admins/admin.entity';
+import { WorkersService } from '../workers/workers.service';
+import { Worker } from '../workers/worker.entity';
+import { UserRole } from '../common/enums';
 import { JwtPayload } from '../interfaces/auth.interface';
 import { AuthUser, ForgotPasswordResponse, LoginResponse, MessageResponse } from '../interfaces/auth.interface';
 import { WalletService } from '../wallet/wallet.service';
 
+type Account = Admin | Worker;
+
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly usersService: UsersService,
+    private readonly adminsService: AdminsService,
+    private readonly workersService: WorkersService,
     private readonly walletService: WalletService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
 
   async login(email: string, password: string): Promise<LoginResponse> {
-    const user = await this.usersService.findByEmail(email, true);
-    if (!user) {
+    const [admin, worker] = await Promise.all([
+      this.adminsService.findByEmail(email, true),
+      this.workersService.findByEmail(email, true),
+    ]);
+    const account = admin ?? worker;
+    if (!account) {
       throw new UnauthorizedException('Invalid email or password');
     }
+    const role = admin ? UserRole.ADMIN : UserRole.WORKER;
 
-    const passwordMatches = await bcrypt.compare(password, user.passwordHash);
+    const passwordMatches = await bcrypt.compare(password, account.passwordHash);
     if (!passwordMatches) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    return this.issueSession(user.id);
+    return this.issueSession(account, role);
   }
 
   async register(dto: RegisterDto): Promise<LoginResponse> {
-    const existingUser = await this.usersService.findByEmail(dto.email);
-    if (existingUser) {
+    const [existingAdmin, existingWorker] = await Promise.all([
+      this.adminsService.findByEmail(dto.email),
+      this.workersService.findByEmail(dto.email),
+    ]);
+    if (existingAdmin || existingWorker) {
       throw new ConflictException('Email already in use');
     }
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
-    const user = await this.usersService.createWorker({
+    const worker = await this.workersService.createWorker({
       email: dto.email,
       passwordHash,
       firstName: dto.firstName,
       lastName: dto.lastName,
     });
-    await this.walletService.ensureWalletForWorker(user.id);
+    await this.walletService.ensureWalletForWorker(worker.id);
 
-    return this.issueSession(user.id);
+    return this.issueSession(worker, UserRole.WORKER);
   }
 
   async refresh(refreshToken: string): Promise<LoginResponse> {
     const payload = await this.verifyRefreshToken(refreshToken);
-    const user = await this.usersService.findById(payload.sub, true);
-    if (!user || !user.refreshTokenHash) {
+    const account = await this.findAccountById(payload.sub, payload.role, true);
+    if (!account || !account.refreshTokenHash) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const refreshTokenMatches = await bcrypt.compare(refreshToken, user.refreshTokenHash);
+    const refreshTokenMatches = await bcrypt.compare(refreshToken, account.refreshTokenHash);
     if (!refreshTokenMatches) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    return this.issueSession(user.id);
+    return this.issueSession(account, payload.role);
   }
 
   async logout(refreshToken: string): Promise<MessageResponse> {
     const payload = await this.verifyRefreshToken(refreshToken);
-    const user = await this.usersService.findById(payload.sub, true);
-    if (!user || !user.refreshTokenHash) {
+    const account = await this.findAccountById(payload.sub, payload.role, true);
+    if (!account || !account.refreshTokenHash) {
       return { message: 'Logged out' };
     }
 
-    const refreshTokenMatches = await bcrypt.compare(refreshToken, user.refreshTokenHash);
+    const refreshTokenMatches = await bcrypt.compare(refreshToken, account.refreshTokenHash);
     if (!refreshTokenMatches) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    await this.usersService.updateRefreshTokenHash(user.id, null);
+    await this.updateRefreshTokenHash(account.id, payload.role, null);
     return { message: 'Logged out' };
   }
 
   async forgotPassword(email: string): Promise<ForgotPasswordResponse> {
-    const user = await this.usersService.findByEmail(email, true);
-    if (!user) {
+    const [admin, worker] = await Promise.all([
+      this.adminsService.findByEmail(email, true),
+      this.workersService.findByEmail(email, true),
+    ]);
+    const account = admin ?? worker;
+    if (!account) {
       return { message: 'If the account exists, a reset token has been generated', resetToken: null };
     }
+    const role = admin ? UserRole.ADMIN : UserRole.WORKER;
 
     const resetToken = crypto.randomBytes(PASSWORD_RESET_TOKEN_BYTES).toString('hex');
     const resetTokenHash = await bcrypt.hash(resetToken, BCRYPT_SALT_ROUNDS);
     const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_EXPIRY_MS);
-    await this.usersService.updatePasswordResetToken(user.id, resetTokenHash, expiresAt);
+    await this.updatePasswordResetToken(account.id, role, resetTokenHash, expiresAt);
 
     return {
       message: 'Password reset token generated',
@@ -100,31 +120,53 @@ export class AuthService {
   }
 
   async resetPassword(resetToken: string, newPassword: string): Promise<MessageResponse> {
-    const user = await this.findUserByResetToken(resetToken);
-    if (!user || !user.passwordResetTokenHash || !user.passwordResetTokenExpiresAt) {
+    const match = await this.findAccountByResetToken(resetToken);
+    if (!match || !match.account.passwordResetTokenHash || !match.account.passwordResetTokenExpiresAt) {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
-    const tokenMatches = await bcrypt.compare(resetToken, user.passwordResetTokenHash);
-    if (!tokenMatches || user.passwordResetTokenExpiresAt.getTime() < Date.now()) {
+    const tokenMatches = await bcrypt.compare(resetToken, match.account.passwordResetTokenHash);
+    if (!tokenMatches || match.account.passwordResetTokenExpiresAt.getTime() < Date.now()) {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
     const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
-    await this.usersService.updatePasswordHash(user.id, passwordHash);
-    await this.usersService.updatePasswordResetToken(user.id, null, null);
-    await this.usersService.updateRefreshTokenHash(user.id, null);
+    await this.updatePasswordHash(match.account.id, match.role, passwordHash);
+    await this.updatePasswordResetToken(match.account.id, match.role, null, null);
+    await this.updateRefreshTokenHash(match.account.id, match.role, null);
 
     return { message: 'Password reset successfully' };
   }
 
-  private async issueSession(userId: number): Promise<LoginResponse> {
-    const user = await this.usersService.findById(userId, true);
-    if (!user) {
-      throw new UnauthorizedException('Invalid session');
-    }
+  private findAccountById(id: number, role: UserRole, withSecrets = false): Promise<Account | null> {
+    return role === UserRole.ADMIN ? this.adminsService.findById(id, withSecrets) : this.workersService.findById(id, withSecrets);
+  }
 
-    const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
+  private updateRefreshTokenHash(id: number, role: UserRole, refreshTokenHash: string | null): Promise<void> {
+    return role === UserRole.ADMIN
+      ? this.adminsService.updateRefreshTokenHash(id, refreshTokenHash)
+      : this.workersService.updateRefreshTokenHash(id, refreshTokenHash);
+  }
+
+  private updatePasswordResetToken(
+    id: number,
+    role: UserRole,
+    passwordResetTokenHash: string | null,
+    passwordResetTokenExpiresAt: Date | null,
+  ): Promise<void> {
+    return role === UserRole.ADMIN
+      ? this.adminsService.updatePasswordResetToken(id, passwordResetTokenHash, passwordResetTokenExpiresAt)
+      : this.workersService.updatePasswordResetToken(id, passwordResetTokenHash, passwordResetTokenExpiresAt);
+  }
+
+  private updatePasswordHash(id: number, role: UserRole, passwordHash: string): Promise<void> {
+    return role === UserRole.ADMIN
+      ? this.adminsService.updatePasswordHash(id, passwordHash)
+      : this.workersService.updatePasswordHash(id, passwordHash);
+  }
+
+  private async issueSession(account: Account, role: UserRole): Promise<LoginResponse> {
+    const payload: JwtPayload = { sub: account.id, email: account.email, role };
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
       expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN'),
@@ -135,12 +177,12 @@ export class AuthService {
     });
 
     const refreshTokenHash = await bcrypt.hash(refreshToken, BCRYPT_SALT_ROUNDS);
-    await this.usersService.updateRefreshTokenHash(user.id, refreshTokenHash);
+    await this.updateRefreshTokenHash(account.id, role, refreshTokenHash);
 
     return {
       accessToken,
       refreshToken,
-      user: this.toAuthUser(user),
+      user: this.toAuthUser(account, role),
     };
   }
 
@@ -154,29 +196,39 @@ export class AuthService {
     }
   }
 
-  private async findUserByResetToken(resetToken: string) {
-    const users = await this.usersService.findUsersWithResetSecrets();
-    for (const user of users) {
-      if (!user.passwordResetTokenHash || !user.passwordResetTokenExpiresAt) {
+  private async findAccountByResetToken(resetToken: string): Promise<{ account: Account; role: UserRole } | null> {
+    const [admins, workers] = await Promise.all([
+      this.adminsService.findAdminsWithResetSecrets(),
+      this.workersService.findWorkersWithResetSecrets(),
+    ]);
+
+    const candidates: { account: Account; role: UserRole }[] = [
+      ...admins.map((account) => ({ account, role: UserRole.ADMIN })),
+      ...workers.map((account) => ({ account, role: UserRole.WORKER })),
+    ];
+
+    for (const candidate of candidates) {
+      const { account } = candidate;
+      if (!account.passwordResetTokenHash || !account.passwordResetTokenExpiresAt) {
         continue;
       }
 
-      const tokenMatches = await bcrypt.compare(resetToken, user.passwordResetTokenHash);
-      if (tokenMatches && user.passwordResetTokenExpiresAt.getTime() >= Date.now()) {
-        return user;
+      const tokenMatches = await bcrypt.compare(resetToken, account.passwordResetTokenHash);
+      if (tokenMatches && account.passwordResetTokenExpiresAt.getTime() >= Date.now()) {
+        return candidate;
       }
     }
 
     return null;
   }
 
-  private toAuthUser(user: { id: number; email: string; firstName: string; lastName: string; role: AuthUser['role'] }): AuthUser {
+  private toAuthUser(account: Account, role: UserRole): AuthUser {
     return {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
+      id: account.id,
+      email: account.email,
+      firstName: account.firstName,
+      lastName: account.lastName,
+      role,
     };
   }
 }

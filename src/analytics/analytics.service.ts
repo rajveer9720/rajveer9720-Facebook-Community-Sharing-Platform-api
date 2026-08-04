@@ -4,9 +4,9 @@ import { Repository } from 'typeorm';
 import { Submission } from '../submissions/submission.entity';
 import { Campaign } from '../campaigns/campaign.entity';
 import { FacebookGroup } from '../groups/facebook-group.entity';
-import { User } from '../users/user.entity';
+import { Worker } from '../workers/worker.entity';
 import { AdminOverviewStatsResponse, AnalyticsOverviewResponse, CategoryPerformanceResponse } from '../interfaces/analytics.interface';
-import { CampaignStatus, GroupStatus, SubmissionStatus, UserRole } from '../common/enums';
+import { CampaignStatus, GroupStatus, SubmissionStatus } from '../common/enums';
 
 interface CategoryRow {
   category: string;
@@ -20,7 +20,7 @@ export class AnalyticsService {
     @InjectRepository(Submission) private readonly submissionsRepository: Repository<Submission>,
     @InjectRepository(Campaign) private readonly campaignsRepository: Repository<Campaign>,
     @InjectRepository(FacebookGroup) private readonly groupsRepository: Repository<FacebookGroup>,
-    @InjectRepository(User) private readonly usersRepository: Repository<User>,
+    @InjectRepository(Worker) private readonly workersRepository: Repository<Worker>,
   ) {}
 
   async getOverview(): Promise<AnalyticsOverviewResponse> {
@@ -80,7 +80,7 @@ export class AnalyticsService {
 
   async getAdminOverview(): Promise<AdminOverviewStatsResponse> {
     const [totalWorkers, runningCampaigns, pendingReviews, uniqueGroups] = await Promise.all([
-      this.usersRepository.count({ where: { role: UserRole.WORKER } }),
+      this.workersRepository.count(),
       this.campaignsRepository.count({ where: { status: CampaignStatus.ACTIVE } }),
       this.submissionsRepository
         .createQueryBuilder('submission')

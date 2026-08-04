@@ -5,7 +5,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
+import { AdminsModule } from './admins/admins.module';
+import { WorkersModule } from './workers/workers.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { GroupsModule } from './groups/groups.module';
 import { SubmissionsModule } from './submissions/submissions.module';
@@ -39,7 +40,8 @@ import { WorkerPerformanceModule } from './worker-performance/worker-performance
       },
     }),
     AuthModule,
-    UsersModule,
+    AdminsModule,
+    WorkersModule,
     CampaignsModule,
     GroupsModule,
     SubmissionsModule,

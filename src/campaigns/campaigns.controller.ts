@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, ParseIntPipe, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -10,7 +10,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequestUser } from '../interfaces/auth.interface';
 import { CampaignsService } from './campaigns.service';
-import { CreateCampaignDto } from '../dto/campaigns.dto';
+import { CreateCampaignDto, UpdateCampaignDto } from '../dto/campaigns.dto';
 
 const MAX_MEDIA_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 
@@ -47,6 +47,13 @@ export class CampaignsController {
     return this.campaignsService.findById(id);
   }
 
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  update(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCampaignDto) {
+    return this.campaignsService.update(id, dto, user.id);
+  }
+
   @Post('media-signed-url')
   getMediaSignedUrl(@Body() body: { objectKey: string }) {
     if (!body?.objectKey) {
@@ -73,6 +80,13 @@ export class CampaignsController {
   )
   uploadMedia(@CurrentUser() user: RequestUser, @UploadedFile() file: Express.Multer.File) {
     return this.campaignsService.uploadMedia(user.id, file);
+  }
+
+  @Post(':id/activate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  activate(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number) {
+    return this.campaignsService.activate(id, user.id);
   }
 
   @Post(':id/pause')

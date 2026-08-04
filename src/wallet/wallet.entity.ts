@@ -1,14 +1,14 @@
 import { Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from 'typeorm';
-import { User } from '../users/user.entity';
+import { Worker } from '../workers/worker.entity';
 
 @Entity('wallets')
 export class Wallet {
   @PrimaryColumn()
   workerId: number;
 
-  @OneToOne(() => User, { onDelete: 'CASCADE' })
+  @OneToOne(() => Worker, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workerId' })
-  worker: User;
+  worker: Worker;
 
   @Column({ default: 0 })
   availableMinor: number;

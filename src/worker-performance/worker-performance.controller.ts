@@ -21,8 +21,9 @@ export class WorkerPerformanceController {
   @Get('admin/worker-performance')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  workersPerformance(@Query('limit') limit?: string) {
+  async workersPerformance(@Query('limit') limit?: string) {
     const parsedLimit = limit ? Number(limit) : 100;
-    return this.workerPerformanceService.listWorkersPerformance(Number.isFinite(parsedLimit) ? parsedLimit : 100);
+    const items = await this.workerPerformanceService.listWorkersPerformance(Number.isFinite(parsedLimit) ? parsedLimit : 100);
+    return { items };
   }
 }

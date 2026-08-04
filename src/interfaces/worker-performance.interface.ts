@@ -1,5 +1,7 @@
 export interface WorkerPerformanceResponse {
   workerId: number;
+  workerName: string;
+  email: string;
   totalSubmissions: number;
   approvedCount: number;
   rejectedCount: number;

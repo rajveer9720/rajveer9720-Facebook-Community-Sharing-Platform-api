@@ -1,5 +1,5 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { User } from '../users/user.entity';
+import { Worker } from '../workers/worker.entity';
 import { FacebookGroup } from './facebook-group.entity';
 
 @Entity('worker_group_library_entries')
@@ -10,9 +10,9 @@ export class WorkerGroupLibraryEntry {
   @Column()
   workerId: number;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Worker, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'workerId' })
-  worker: User;
+  worker: Worker;
 
   @Column()
   groupId: number;

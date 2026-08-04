@@ -10,6 +10,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequestUser } from '../interfaces/auth.interface';
 import { CampaignsService } from './campaigns.service';
+import { CreateCampaignDto } from '../dto/campaigns.dto';
 
 const MAX_MEDIA_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 
@@ -20,6 +21,13 @@ export class CampaignsController {
   @Get()
   findAll(@Query('status') status?: CampaignStatus) {
     return this.campaignsService.findAll(status);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  create(@CurrentUser() user: RequestUser, @Body() dto: CreateCampaignDto) {
+    return this.campaignsService.create(dto, user.id);
   }
 
   @Get('media-download')

@@ -682,7 +682,7 @@ export class SubmissionsService {
       return 'Please update your submission and resubmit it.';
     }
 
-    return 'Your submission is being reviewed.';
+    return 'Your submission is under review.';
   }
 
   private getVisibleVerificationExplanation(verificationExplanation: string | null | undefined, viewerRole: UserRole): string {
@@ -709,7 +709,7 @@ export class SubmissionsService {
       return 'The submitted proof appears unique and is under review.';
     }
 
-    return 'The submission is being reviewed.';
+    return 'The submission is under review.';
   }
 
   private sanitizeVerificationMessage(message: string | null | undefined): string {

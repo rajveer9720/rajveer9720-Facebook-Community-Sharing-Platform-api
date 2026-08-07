@@ -7,6 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { AdminsModule } from './admins/admins.module';
 import { WorkersModule } from './workers/workers.module';
+import { RolesModule } from './roles/roles.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { GroupsModule } from './groups/groups.module';
 import { SubmissionsModule } from './submissions/submissions.module';
@@ -42,6 +43,7 @@ import { WorkerPerformanceModule } from './worker-performance/worker-performance
     AuthModule,
     AdminsModule,
     WorkersModule,
+    RolesModule,
     CampaignsModule,
     GroupsModule,
     SubmissionsModule,

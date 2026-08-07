@@ -3,6 +3,8 @@ import * as dotenv from 'dotenv';
 import { DataSource } from 'typeorm';
 import { Admin } from '../admins/admin.entity';
 import { Worker } from '../workers/worker.entity';
+import { Role } from '../roles/role.entity';
+import { RolePermission } from '../roles/role-permission.entity';
 import { Campaign } from '../campaigns/campaign.entity';
 import { FacebookGroup } from '../groups/facebook-group.entity';
 import { WorkerGroupLibraryEntry } from '../groups/worker-group-library-entry.entity';
@@ -27,6 +29,8 @@ export const AppDataSource = new DataSource({
   entities: [
     Admin,
     Worker,
+    Role,
+    RolePermission,
     Campaign,
     FacebookGroup,
     WorkerGroupLibraryEntry,

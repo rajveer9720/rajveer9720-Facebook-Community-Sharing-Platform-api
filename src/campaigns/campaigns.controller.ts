@@ -6,7 +6,9 @@ import { ALLOWED_MEDIA_MIME_TYPES } from '../common/constants/media.constants';
 import { CampaignStatus, UserRole } from '../common/enums';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { PermissionGuard } from '../common/guards/permission.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequestUser } from '../interfaces/auth.interface';
 import { CampaignsService } from './campaigns.service';
@@ -24,8 +26,9 @@ export class CampaignsController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(UserRole.ADMIN)
+  @RequirePermission('manage', 'Campaign')
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateCampaignDto) {
     return this.campaignsService.create(dto, user.id);
   }
@@ -48,8 +51,9 @@ export class CampaignsController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(UserRole.ADMIN)
+  @RequirePermission('manage', 'Campaign')
   update(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCampaignDto) {
     return this.campaignsService.update(id, dto, user.id);
   }
@@ -63,8 +67,9 @@ export class CampaignsController {
   }
 
   @Post('media-upload')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(UserRole.ADMIN)
+  @RequirePermission('manage', 'Campaign')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
@@ -83,36 +88,41 @@ export class CampaignsController {
   }
 
   @Post(':id/activate')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(UserRole.ADMIN)
+  @RequirePermission('manage', 'Campaign')
   activate(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.activate(id, user.id);
   }
 
   @Post(':id/pause')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(UserRole.ADMIN)
+  @RequirePermission('manage', 'Campaign')
   pause(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.pause(id, user.id);
   }
 
   @Post(':id/resume')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(UserRole.ADMIN)
+  @RequirePermission('manage', 'Campaign')
   resume(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.resume(id, user.id);
   }
 
   @Post(':id/duplicate')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(UserRole.ADMIN)
+  @RequirePermission('manage', 'Campaign')
   duplicate(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.duplicate(id, user.id);
   }
 
   @Post(':id/archive')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(UserRole.ADMIN)
+  @RequirePermission('manage', 'Campaign')
   archive(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.archive(id, user.id);
   }

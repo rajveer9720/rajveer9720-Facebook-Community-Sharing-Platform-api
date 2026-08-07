@@ -11,8 +11,10 @@ import { WorkersService } from '../workers/workers.service';
 import { Worker } from '../workers/worker.entity';
 import { UserRole } from '../common/enums';
 import { JwtPayload } from '../interfaces/auth.interface';
-import { AuthUser, ForgotPasswordResponse, LoginResponse, MessageResponse } from '../interfaces/auth.interface';
+import { AuthUser, ForgotPasswordResponse, LoginResponse, MessageResponse, StaffRoleSummary } from '../interfaces/auth.interface';
 import { WalletService } from '../wallet/wallet.service';
+import { RolesService } from '../roles/roles.service';
+import { PermissionPair } from '../permissions/permission-catalog';
 
 type Account = Admin | Worker;
 
@@ -22,6 +24,7 @@ export class AuthService {
     private readonly adminsService: AdminsService,
     private readonly workersService: WorkersService,
     private readonly walletService: WalletService,
+    private readonly rolesService: RolesService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
@@ -166,7 +169,9 @@ export class AuthService {
   }
 
   private async issueSession(account: Account, role: UserRole): Promise<LoginResponse> {
-    const payload: JwtPayload = { sub: account.id, email: account.email, role };
+    const { permissions, staffRole } = await this.resolveStaffContext(account, role);
+
+    const payload: JwtPayload = { sub: account.id, email: account.email, role, permissions };
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
       expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN'),
@@ -182,7 +187,27 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: this.toAuthUser(account, role),
+      user: this.toAuthUser(account, role, permissions, staffRole),
+    };
+  }
+
+  private async resolveStaffContext(
+    account: Account,
+    role: UserRole,
+  ): Promise<{ permissions: PermissionPair[]; staffRole: StaffRoleSummary | null }> {
+    if (role !== UserRole.ADMIN) {
+      return { permissions: [], staffRole: null };
+    }
+
+    const roleId = (account as Admin).roleId;
+    if (!roleId) {
+      return { permissions: [], staffRole: null };
+    }
+
+    const roleEntity = await this.rolesService.findById(roleId);
+    return {
+      permissions: roleEntity.permissions.map((permission) => ({ action: permission.action, subject: permission.subject })),
+      staffRole: { id: roleEntity.id, name: roleEntity.name, slug: roleEntity.slug },
     };
   }
 
@@ -222,13 +247,15 @@ export class AuthService {
     return null;
   }
 
-  private toAuthUser(account: Account, role: UserRole): AuthUser {
+  private toAuthUser(account: Account, role: UserRole, permissions: PermissionPair[], staffRole: StaffRoleSummary | null): AuthUser {
     return {
       id: account.id,
       email: account.email,
       firstName: account.firstName,
       lastName: account.lastName,
       role,
+      permissions,
+      staffRole,
     };
   }
 }

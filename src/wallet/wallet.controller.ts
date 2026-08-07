@@ -4,7 +4,9 @@ import { WalletService } from './wallet.service';
 import { UserRole, WithdrawalStatus } from '../common/enums';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { PermissionGuard } from '../common/guards/permission.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequestUser } from '../interfaces/auth.interface';
 
@@ -19,6 +21,9 @@ export class WalletController {
   }
 
   @Get('withdrawals')
+  @UseGuards(RolesGuard, PermissionGuard)
+  @Roles(UserRole.ADMIN)
+  @RequirePermission('review', 'Withdrawal')
   listWithdrawals(@Query('status') status?: WithdrawalStatus) {
     return this.walletService.listWithdrawals(status);
   }
@@ -31,15 +36,17 @@ export class WalletController {
   }
 
   @Post('withdrawals/:id/review')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, PermissionGuard)
   @Roles(UserRole.ADMIN)
+  @RequirePermission('review', 'Withdrawal')
   reviewWithdrawal(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number, @Body() dto: ReviewWithdrawalDto) {
     return this.walletService.reviewWithdrawal(id, dto.action, user.id);
   }
 
   @Post('withdrawals/:id/complete')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, PermissionGuard)
   @Roles(UserRole.ADMIN)
+  @RequirePermission('complete', 'Withdrawal')
   completeWithdrawal(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number) {
     return this.walletService.completeWithdrawal(id, user.id);
   }

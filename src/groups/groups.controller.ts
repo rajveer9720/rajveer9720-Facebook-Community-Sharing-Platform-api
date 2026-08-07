@@ -4,7 +4,9 @@ import { GroupsService } from './groups.service';
 import { GroupStatus, UserRole } from '../common/enums';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { PermissionGuard } from '../common/guards/permission.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequestUser } from '../interfaces/auth.interface';
 
@@ -44,15 +46,17 @@ export class GroupsController {
   }
 
   @Post('groups/:id/moderate')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(UserRole.ADMIN)
+  @RequirePermission('moderate', 'Group')
   moderate(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number, @Body() dto: ModerateGroupDto) {
     return this.groupsService.moderate(id, dto, user.id);
   }
 
   @Patch('groups/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(UserRole.ADMIN)
+  @RequirePermission('moderate', 'Group')
   update(@CurrentUser() user: RequestUser, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateGroupDto) {
     return this.groupsService.update(id, dto, user.id);
   }

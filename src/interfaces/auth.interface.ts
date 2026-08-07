@@ -1,15 +1,24 @@
 import { UserRole } from '../common/enums';
+import { PermissionPair } from '../permissions/permission-catalog';
 
 export interface JwtPayload {
   sub: number;
   email: string;
   role: UserRole;
+  permissions: PermissionPair[];
 }
 
 export interface RequestUser {
   id: number;
   email: string;
   role: UserRole;
+  permissions: PermissionPair[];
+}
+
+export interface StaffRoleSummary {
+  id: number;
+  name: string;
+  slug: string;
 }
 
 export interface AuthUser {
@@ -18,6 +27,8 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   role: UserRole;
+  permissions: PermissionPair[];
+  staffRole: StaffRoleSummary | null;
 }
 
 export interface LoginResponse {

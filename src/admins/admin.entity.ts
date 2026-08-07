@@ -1,9 +1,17 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Role } from '../roles/role.entity';
 
 @Entity('admins')
 export class Admin {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({ type: 'int', nullable: true })
+  roleId: number | null;
+
+  @ManyToOne(() => Role, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'roleId' })
+  role: Role | null;
 
   @Column({ unique: true })
   email: string;
